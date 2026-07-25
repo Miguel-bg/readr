@@ -1,71 +1,62 @@
 # Readr
 
-Aplicação de leitura e autoria construída com Next.js App Router, TypeScript, Tailwind CSS, Supabase e `react-pageflip`.
+Aplicação funcional de leitura, importação e autoria construída com Next.js 14 App Router, React, TypeScript, Tailwind CSS, Supabase, Zustand e `react-pageflip`.
 
 ## Funcionalidades concluídas
 
-- Cadastro e login temporários com Supabase Auth.
-- Perfil com nome e avatar no Supabase Storage.
-- Biblioteca sem dados demonstrativos: usuários novos começam com estante vazia.
+- Cadastro com nome, e-mail real e senha escolhida pelo usuário.
+- Login com e-mail e senha, com sessão persistente do Supabase Auth em diferentes dispositivos.
+- E-mail como identidade única da conta.
+- Ausência de sessão tratada como estado normal, sem exibir `Auth session missing!`.
+- Perfil com nome em `user_metadata`/`profiles` e avatar no Storage.
+- Biblioteca sem usuários, livros ou progresso demonstrativos.
 - Importação persistente de EPUB, PDF e DOCX.
-- Parsing real no navegador:
-  - EPUB com JSZip e leitura do manifesto/spine;
-  - PDF com PDF.js;
-  - DOCX com Mammoth.
-- Upload do arquivo original no bucket privado `uploads`.
-- Upload opcional de capa no bucket público `covers`.
-- Conteúdo extraído persistido em `books.content` para leitura posterior.
-- Criação, edição, rascunho e publicação de livros autorais.
-- Área **Descobrir** para livros publicados por outros usuários.
-- RLS: somente o proprietário altera ou remove livros; usuários autenticados leem publicações.
-- Contador real de leituras para leitores diferentes do proprietário.
+- Parsing no navegador com JSZip, PDF.js e Mammoth.
+- Livros importados legíveis por todos os usuários autenticados.
+- Livros autorais publicados legíveis por todos os usuários autenticados.
+- Somente o proprietário pode alterar ou excluir seus livros.
+- Área **Descobrir** reunindo importados e publicações de outros usuários.
 - Progresso persistido por usuário, livro e origem.
-- Continue Reading alimentado pelo progresso mais recente.
-- Leitor responsivo com spread duplo no desktop e página única no mobile.
-- Mouse, touch, teclado, setas e slider integrados ao PageFlip.
-- Temas claro, sépia e escuro; fonte, tamanho, margens e espaçamento configuráveis.
-- Capas procedurais determinísticas com oito composições editoriais.
-- Sidebar desktop e bottom navigation mobile.
-- Busca por título e autor.
-- Loading, empty e error states sem fallback para mocks.
+- Contador real de leituras para livros autorais publicados.
+- Leitor responsivo: livro aberto no desktop e página única no mobile.
+- Capas retangulares planas em proporção 2:3, imagem com `object-fit: cover`, bordas discretas e textos abaixo do card.
+- Loading, error e empty states sem fallback para mocks.
 
 ## Rotas
 
 | Rota | Função |
 |---|---|
 | `/` | Dashboard e última leitura |
-| `/auth/login` | Login temporário |
-| `/auth/signup` | Cadastro temporário |
-| `/library` | Arquivos importados do usuário |
-| `/library/created` | Livros criados pelo usuário |
-| `/library/community` | Descoberta de publicações de outros usuários |
-| `/import` | Importação e parsing de EPUB/PDF/DOCX |
+| `/auth/login` | Login por nome, e-mail e senha |
+| `/auth/signup` | Cadastro por nome, e-mail e senha |
+| `/library` | Importações do usuário atual |
+| `/library/created` | Livros criados pelo usuário atual |
+| `/library/community` | Importados e livros publicados por outros usuários |
+| `/import` | Importação de EPUB/PDF/DOCX |
 | `/create` | Novo livro autoral |
-| `/book/[id]?source=imported` | Leitor de arquivo importado |
+| `/book/[id]?source=imported` | Leitor de livro importado |
 | `/book/[id]?source=created` | Leitor de livro autoral |
-| `/book/[id]/edit` | Editor protegido por ownership/RLS |
+| `/book/[id]/edit` | Editor protegido por proprietário e RLS |
 | `/settings` | Preferências de leitura |
 | `/profile` | Perfil, avatar e logout |
 
-A biblioteca aceita `?query=texto` para busca.
+As bibliotecas aceitam `?query=texto` para busca.
 
 ## Configuração do Supabase
 
 1. Crie um projeto no Supabase.
 2. Abra **SQL Editor**.
 3. Execute integralmente [`supabase/schema.sql`](supabase/schema.sql).
-4. Confirme a criação das tabelas:
-   - `profiles`;
-   - `books`;
-   - `created_books`;
-   - `chapters`;
-   - `reading_progress`;
-   - `customization_settings`.
-5. Confirme os buckets:
-   - `covers` — público;
-   - `avatars` — público;
-   - `uploads` — privado.
-6. Em desenvolvimento, copie `.env.example` para `.env.local` e preencha as chaves.
+4. Se você já executou uma versão anterior, execute o arquivo novamente. Ele remove a policy privada antiga de `books` e cria as policies públicas de leitura autenticada, mantendo escrita apenas para o proprietário.
+5. Confirme as tabelas `profiles`, `books`, `created_books`, `chapters`, `reading_progress` e `customization_settings`.
+6. Confirme os buckets `covers`, `avatars` e `uploads`.
+7. Em **Authentication → Providers → Email**, escolha uma destas opções:
+   - para acesso imediato nesta fase simples, desative **Confirm email**;
+   - se mantiver a confirmação ativa, o cadastro mostrará uma mensagem pedindo confirmação antes do primeiro login.
+
+No ambiente Supabase verificado em 25/07/2026, o provedor de e-mail está habilitado e a confirmação de e-mail está **obrigatória**. Para entrar imediatamente após o cadastro, desative **Confirm email** no painel; essa configuração não pode ser ignorada pelo frontend.
+
+8. Copie `.env.example` para `.env.local` e preencha:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
@@ -73,42 +64,48 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-A service-role key é exclusivamente server-side. O app atual não a envia ao navegador.
+A service-role key não é usada no navegador e nunca deve ser exposta ou commitada.
 
-### Estado do ambiente Supabase recebido
+### Por que aparecia `Auth session missing!`
 
-Em 24/07/2026 foi feito um probe real usando a URL e anon key configuradas. O Auth respondeu, mas a API retornou `PGRST205` para `books`, `created_books` e `reading_progress`: as tabelas ainda não existem no projeto remoto informado. Por esse motivo, o teste multiusuário remoto não pôde ser concluído sem inventar um resultado. Execute `supabase/schema.sql` no projeto e então siga o roteiro abaixo.
+A versão anterior chamava `auth.getUser()` e lançava `AuthSessionMissingError` quando o visitante ainda não possuía sessão. Agora o app consulta a sessão persistida e retorna perfil `null` quando não existe usuário autenticado. Isso é um estado normal, não um erro.
 
-## Teste multiusuário
+## RLS e modelo de acesso
 
-1. Crie a conta A e publique um livro com capa e capítulos.
-2. Saia e crie a conta B.
-3. Em `/library/community`, abra a publicação da conta A.
-4. Confirme o incremento de `created_books.reads_count`.
-5. Avance páginas e confirme uma linha em `reading_progress` para a conta B.
-6. Faça logout/login e confirme a retomada.
-7. Acesse `/book/[id]/edit` com a conta B: a UI deve negar e a policy RLS deve bloquear qualquer update direto.
-8. Na conta A, importe um EPUB/PDF/DOCX e confirme o objeto no bucket `uploads`, a linha em `books` e a retomada no Dashboard.
+- `books`: qualquer usuário autenticado pode ler; somente `user_id = auth.uid()` pode inserir, atualizar ou excluir.
+- `created_books`: rascunhos são privados; publicações são legíveis por autenticados; somente o proprietário escreve.
+- `chapters`: acompanham a visibilidade e a propriedade do livro autoral.
+- `reading_progress`: cada usuário acessa somente seu próprio progresso.
+- `profiles`: cada usuário lê e atualiza seu próprio perfil.
+- `uploads`: os arquivos originais permanecem privados; a leitura compartilhada usa o conteúdo extraído persistido em `books.content`.
 
-## Desenvolvimento
+## Teste multiusuário recomendado
 
-Requer Node.js 20 ou superior.
+1. Com confirmação de e-mail desativada, crie a conta A usando nome, e-mail e senha.
+2. Importe um EPUB/PDF/DOCX e publique um livro autoral.
+3. Saia e crie a conta B com outro e-mail.
+4. Em `/library/community`, confirme que a conta B vê e lê os dois livros da conta A.
+5. Avance páginas e confirme a retomada após logout/login.
+6. Tente abrir `/book/[id]/edit` com a conta B; a UI e a RLS devem impedir edição.
+7. Entre novamente na conta A, inclusive em outro dispositivo, e confirme a edição normal.
+
+## Desenvolvimento local
+
+Requer Node.js 20+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-A aplicação usa `http://localhost:3000`.
-
-Build e servidor de produção:
+Build de produção:
 
 ```bash
 npm run build
 npm run start
 ```
 
-No sandbox, o PM2 usa `ecosystem.config.cjs`:
+No sandbox:
 
 ```bash
 pm2 start ecosystem.config.cjs
@@ -117,35 +114,32 @@ pm2 logs readr --nostream
 
 ## Deploy na Vercel
 
-1. Envie o repositório para GitHub/GitLab/Bitbucket.
-2. Importe o repositório na Vercel como projeto Next.js.
-3. Configure as variáveis do `.env.example` em **Project Settings → Environment Variables**.
-4. Use `npm run build` como build command.
-5. Não configure Cloudflare Pages ou Hono; o destino deste projeto é Vercel.
-6. Aplique `supabase/schema.sql` antes de liberar cadastros.
+1. Extraia o pacote do projeto e envie os arquivos para um repositório GitHub, GitLab ou Bitbucket.
+2. Na Vercel, escolha **Add New → Project** e importe o repositório.
+3. O framework deve ser detectado como **Next.js**.
+4. Em **Settings → Environment Variables**, adicione `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` para Production, Preview e Development.
+5. Não exponha `SUPABASE_SERVICE_ROLE_KEY` no frontend. O app atual não precisa dela para funcionar.
+6. Use `npm run build` como Build Command e mantenha o Output Directory automático do Next.js.
+7. Faça o deploy.
+8. No Supabase, adicione a URL Vercel em **Authentication → URL Configuration → Site URL** e em **Redirect URLs**.
+9. Execute a versão atual de `supabase/schema.sql` antes de liberar o site.
 
-## Modelo de dados
+## Hospedagem Genspark
 
-- `books`: importações privadas, metadados, path do arquivo e páginas extraídas.
-- `created_books`: obras autorais e status de publicação.
-- `chapters`: capítulos ordenados de obras autorais.
-- `reading_progress`: progresso polimórfico com unique em `(user_id, book_id, book_source)`.
-- `profiles`: identidade visual do usuário.
-- `customization_settings`: estrutura preparada para preferências sincronizadas.
+Este repositório usa Next.js com runtime de servidor. O Hosted Deploy padrão do Genspark é voltado ao stack Hono/Cloudflare Workers e não oferece publicação direta e confiável deste projeto Next.js sem uma migração específica para Cloudflare/OpenNext ou uma conversão para SPA/Hono. O build deve sempre ser feito em Linux. O código permanece pronto para Vercel; uma eventual migração de hospedagem não deve alterar o banco Supabase nem as regras RLS.
 
-## Segurança
+## Armazenamento e dados
 
-- Arquivos importados são privados e filtrados por `user_id`.
-- Livros em rascunho são visíveis somente ao proprietário.
-- Livros publicados são legíveis por usuários autenticados.
-- Updates/deletes dependem de ownership no app e em RLS.
-- A RPC de leituras ignora o proprietário e somente incrementa publicações.
-- Segredos não devem ser commitados.
+- Supabase Auth: contas e sessões.
+- Postgres: perfis, livros, capítulos e progresso.
+- Storage `covers`: capas públicas.
+- Storage `avatars`: avatares públicos.
+- Storage `uploads`: originais privados.
+- Zustand: preferências e estado imediato do leitor.
 
 ## Limitações e próximos passos
 
-- A senha fixa `123456` é temporária e deve ser substituída por senha definida pelo usuário e verificação de e-mail.
-- PDFs formados apenas por imagens precisam de OCR, ainda não incluído.
+- PDFs formados somente por imagens precisam de OCR.
 - EPUBs com DRM não são suportados.
-- Preferências do Zustand ainda são locais; a tabela de sincronização já está preparada.
-- O audit de produção ainda aponta advisories na linha Next.js 14/PostCSS; uma migração controlada para a versão major corrigida deve ser planejada, evitando `npm audit fix --force` sem testes.
+- Preferências do Zustand ainda são locais; a tabela de sincronização já existe.
+- A segurança usa Supabase Auth e RLS, mas ainda não inclui MFA, CAPTCHA ou políticas avançadas de senha.

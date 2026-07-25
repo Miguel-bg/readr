@@ -21,8 +21,14 @@ export async function getImportedLibrary(userId: string): Promise<Book[]> {
   if (error) throw error
   return (data || []).map(imported)
 }
-export async function getImportedBook(bookId: string, userId: string): Promise<Book | null> {
-  const { data, error } = await createClient().from('books').select('*').eq('id', bookId).eq('user_id', userId).maybeSingle()
+export async function getPublicImportedBooks(userId: string): Promise<Book[]> {
+  if (!userId) throw new Error('Entre na sua conta para descobrir novos livros.')
+  const { data, error } = await createClient().from('books').select('*').neq('user_id', userId).order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map(imported)
+}
+export async function getImportedBook(bookId: string): Promise<Book | null> {
+  const { data, error } = await createClient().from('books').select('*').eq('id', bookId).maybeSingle()
   if (error) throw error
   return data ? imported(data) : null
 }
@@ -102,7 +108,7 @@ export async function getContinueReading(userId: string): Promise<ContinueReadin
   if (!data) return null
   const progress = data as ReadingProgress
   if (progress.book_source === 'imported') {
-    const book = await getImportedBook(progress.book_id, userId)
+    const book = await getImportedBook(progress.book_id)
     if (!book) return null
     const index = Math.min(progress.current_page, Math.max(0, (book.content?.length || 1) - 1))
     return { book, progress, pageHtml: book.content?.[index] || '', chapterTitle: `Página ${index + 1}` }
@@ -130,9 +136,11 @@ export async function uploadCover(file: File, userId: string) {
 }
 export async function getCurrentProfile(): Promise<UserProfile | null> {
   const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError) throw authError
-  if (!user) return null
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+  if (sessionError) throw sessionError
+  if (!session?.user) return null
+
+  const user = session.user
   const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (error) throw error
   return data || { id: user.id, display_name: String(user.user_metadata.display_name || user.email?.split('@')[0] || ''), avatar_url: null }

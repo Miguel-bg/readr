@@ -84,7 +84,7 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
           loadedPages = created ? await new CreatedBookSource(created, created.chapters || []).load() : []
           if (created) await registerBookRead(bookId, currentProfile.id, created.user_id)
         } else {
-          loadedBook = await getImportedBook(bookId, currentProfile.id)
+          loadedBook = await getImportedBook(bookId)
           loadedPages = loadedBook ? await new ImportedBookSource(loadedBook).load() : []
         }
         if (!loadedBook) throw new Error('Livro não encontrado ou acesso não permitido.')

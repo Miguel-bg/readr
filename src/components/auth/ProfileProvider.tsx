@@ -16,7 +16,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .then((profile) => { if (active) setValue({ profile, loading: false, error: '' }) })
       .catch((cause) => { if (active) setValue({ profile: null, loading: false, error: cause instanceof Error ? cause.message : 'Não foi possível carregar o perfil.' }) })
     load()
-    const { data: listener } = createClient().auth.onAuthStateChange(() => { setValue((current) => ({ ...current, loading: true })); load() })
+    const { data: listener } = createClient().auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        setValue((current) => ({ ...current, loading: true, error: '' }))
+        window.setTimeout(load, 0)
+      }
+    })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [])
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

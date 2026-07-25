@@ -7,7 +7,7 @@ import { AlertCircle, BookPlus, Compass, Library, LoaderCircle, RotateCcw, Uploa
 import { AppShell } from '@/components/layout/AppShell'
 import { BookCard } from './BookCard'
 import { CreateBookCard } from './CreateBookCard'
-import { getCommunityBooks, getCreatedBooks, getCurrentProfile, getImportedLibrary } from '@/lib/data'
+import { getCommunityBooks, getCreatedBooks, getCurrentProfile, getImportedLibrary, getPublicImportedBooks } from '@/lib/data'
 import type { Book, UserProfile } from '@/lib/types'
 
 type LibraryMode = 'imported' | 'created' | 'community'
@@ -15,7 +15,7 @@ type LibraryMode = 'imported' | 'created' | 'community'
 const copy = {
   imported: { eyebrow: 'Sua estante digital', title: 'Minha biblioteca', subtitle: 'Seus arquivos importados com leitura e progresso sincronizados.' },
   created: { eyebrow: 'Seu espaço de autoria', title: 'Livros criados', subtitle: 'Escreva, publique e acompanhe suas leituras.' },
-  community: { eyebrow: 'Histórias da comunidade', title: 'Descobrir', subtitle: 'Leia livros publicados por outros autores do Readr.' },
+  community: { eyebrow: 'Biblioteca da comunidade', title: 'Descobrir', subtitle: 'Leia livros importados e obras publicadas por outros usuários do Readr.' },
 }
 
 export function LibraryView({ mode }: { mode: LibraryMode }) {
@@ -35,7 +35,11 @@ export function LibraryView({ mode }: { mode: LibraryMode }) {
         if (!active) return
         setProfile(current)
         if (!current) return
-        const result = mode === 'imported' ? await getImportedLibrary(current.id) : mode === 'created' ? await getCreatedBooks(current.id) : await getCommunityBooks(current.id)
+        const result = mode === 'imported'
+          ? await getImportedLibrary(current.id)
+          : mode === 'created'
+            ? await getCreatedBooks(current.id)
+            : (await Promise.all([getPublicImportedBooks(current.id), getCommunityBooks(current.id)])).flat()
         if (active) setBooks(result)
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível carregar os livros.')
@@ -60,11 +64,11 @@ export function LibraryView({ mode }: { mode: LibraryMode }) {
 
         {!profile && !loading && <EmptyState icon={Library} title="Entre para acessar sua estante" description="Sua biblioteca, seus livros e seu progresso ficam vinculados à sua conta." href="/auth/login" action="Entrar" />}
         {error && <section className="mt-8 flex items-center justify-between gap-4 rounded-xl bg-coral/10 p-4 text-sm text-coral" role="alert"><span className="flex items-center gap-2"><AlertCircle size={17} />{error}</span><button onClick={() => setReloadKey((value) => value + 1)} className="flex items-center gap-1 font-semibold"><RotateCcw size={14} /> Tentar novamente</button></section>}
-        {profile && <section className="mt-8 grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+        {profile && <section className="mt-8 grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 sm:gap-x-6 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
           {mode === 'created' && !loading && <CreateBookCard />}
-          {loading ? Array.from({ length: 6 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-lg bg-black/5" />) : visibleBooks.map((book) => <BookCard key={book.id} book={book} canEdit={mode === 'created'} />)}
+          {loading ? Array.from({ length: 6 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded bg-black/5" />) : visibleBooks.map((book) => <BookCard key={`${book.source}-${book.id}`} book={book} canEdit={mode === 'created' && book.user_id === profile.id} />)}
         </section>}
-        {profile && !loading && !error && !visibleBooks.length && <EmptyState icon={mode === 'community' ? Compass : Library} title={query ? 'Nenhum livro encontrado' : mode === 'community' ? 'Nenhuma publicação disponível' : mode === 'created' ? 'Uma estante esperando sua história' : 'Sua biblioteca está vazia'} description={query ? `Não encontramos resultados para “${searchParams.get('query')}”.` : mode === 'community' ? 'Quando outros autores publicarem livros, eles aparecerão aqui.' : mode === 'created' ? 'Crie seu primeiro livro, adicione capítulos e publique para compartilhar.' : 'Importe um arquivo EPUB, PDF ou DOCX para começar a ler.'} href={query ? '/library' : mode === 'community' ? '/library/created' : mode === 'created' ? '/create' : '/import'} action={query ? 'Limpar busca' : mode === 'community' ? 'Meus livros' : mode === 'created' ? 'Criar livro' : 'Importar livro'} />}
+        {profile && !loading && !error && !visibleBooks.length && <EmptyState icon={mode === 'community' ? Compass : Library} title={query ? 'Nenhum livro encontrado' : mode === 'community' ? 'Nenhum livro disponível' : mode === 'created' ? 'Uma estante esperando sua história' : 'Sua biblioteca está vazia'} description={query ? `Não encontramos resultados para “${searchParams.get('query')}”.` : mode === 'community' ? 'Quando outros usuários importarem ou publicarem livros, eles aparecerão aqui.' : mode === 'created' ? 'Crie seu primeiro livro, adicione capítulos e publique para compartilhar.' : 'Importe um arquivo EPUB, PDF ou DOCX para começar a ler.'} href={query ? '/library' : mode === 'community' ? '/library/created' : mode === 'created' ? '/create' : '/import'} action={query ? 'Limpar busca' : mode === 'community' ? 'Meus livros' : mode === 'created' ? 'Criar livro' : 'Importar livro'} />}
       </section>
     </AppShell>
   )

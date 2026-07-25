@@ -2,37 +2,40 @@
 
 import { createClient } from './client'
 
-const TEMPORARY_PASSWORD = '123456'
-
-export function nameToSyntheticEmail(name: string) {
-  const slug = name
-    .trim()
-    .toLocaleLowerCase('pt-BR')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-  return `${slug || 'leitor'}@readr.app`
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase()
 }
 
-export async function signUp(displayName: string) {
-  const supabase = createClient()
-  const email = nameToSyntheticEmail(displayName)
-  // TODO Fase 2: substituir por senha real definida pelo usuário + verificação de e-mail.
-  const result = await supabase.auth.signUp({
-    email,
-    password: TEMPORARY_PASSWORD,
-    options: { data: { display_name: displayName.trim() } },
+export async function signUp(displayName: string, email: string, password: string) {
+  const name = displayName.trim()
+  const normalizedEmail = normalizeEmail(email)
+
+  if (name.length < 2) throw new Error('Informe seu nome com pelo menos 2 caracteres.')
+  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Informe um e-mail válido.')
+  if (password.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres.')
+
+  const result = await createClient().auth.signUp({
+    email: normalizedEmail,
+    password,
+    options: {
+      data: { display_name: name },
+    },
   })
+
   if (result.error) throw result.error
   return result.data
 }
 
-export async function signIn(nameOrEmail: string) {
-  const supabase = createClient()
-  const email = nameOrEmail.includes('@') ? nameOrEmail.trim() : nameToSyntheticEmail(nameOrEmail)
-  // TODO Fase 2: substituir por senha real definida pelo usuário + verificação de e-mail.
-  const result = await supabase.auth.signInWithPassword({ email, password: TEMPORARY_PASSWORD })
+export async function signIn(email: string, password: string) {
+  const normalizedEmail = normalizeEmail(email)
+  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Informe o e-mail usado no cadastro.')
+  if (!password) throw new Error('Informe sua senha.')
+
+  const result = await createClient().auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  })
+
   if (result.error) throw result.error
   return result.data
 }

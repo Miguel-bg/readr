@@ -39,37 +39,33 @@ a { color: inherit; text-decoration: none; }
   .eyebrow { @apply text-[10px] font-semibold uppercase tracking-[.18em] text-muted; }
 }
 
+.book-card { width:100%; max-width:220px; }
 .book-cover {
-  position: relative; overflow: hidden; isolation: isolate;
-  aspect-ratio: 2 / 3; border-radius: 5px 10px 10px 5px;
-  box-shadow: 0 14px 24px rgba(29,25,17,.2), inset 4px 0 7px rgba(255,255,255,.15);
+  position:relative;
+  overflow:hidden;
+  aspect-ratio:2 / 3;
+  width:100%;
+  border:1px solid rgba(32,33,38,.1);
+  border-radius:5px;
+  background:#e9e4d9;
+  box-shadow:0 8px 18px rgba(29,25,17,.14);
+  transition:transform .18s ease,box-shadow .18s ease;
 }
-.book-cover::before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:linear-gradient(90deg,rgba(0,0,0,.3),rgba(255,255,255,.12),transparent); z-index:8; }
-.book-cover::after { content:""; position:absolute; inset:0; background:linear-gradient(145deg,rgba(255,255,255,.2),transparent 32%,rgba(0,0,0,.18)); pointer-events:none; z-index:7; }
-.generated-cover { color:#fff8e9; background:linear-gradient(var(--cover-angle),var(--cover-a),var(--cover-b) 58%,var(--cover-c)); }
-.generated-cover .cover-art { position:absolute; inset:0; overflow:hidden; opacity:.96; }
-.generated-cover .cover-art::after { content:""; position:absolute; inset:0; opacity:.18; background-image:repeating-linear-gradient(115deg,transparent 0 8px,rgba(255,255,255,.18) 9px 10px); mix-blend-mode:soft-light; }
-.cover-kicker,.cover-title,.cover-author { position:absolute; z-index:4; left:13%; right:11%; overflow-wrap:anywhere; }
-.cover-kicker { top:8%; font-size:clamp(5px,.52vw,8px); font-weight:700; letter-spacing:.18em; text-transform:uppercase; opacity:.76; }
-.cover-title { top:18%; display:-webkit-box; overflow:hidden; font-family:var(--font-serif); font-size:clamp(12px,1.2vw,22px); line-height:.95; letter-spacing:-.025em; -webkit-box-orient:vertical; -webkit-line-clamp:4; text-wrap:balance; }
-.cover-author { bottom:8%; font-size:clamp(6px,.58vw,9px); font-weight:700; letter-spacing:.12em; text-transform:uppercase; opacity:.84; }
-.cover-art i,.cover-art b,.cover-art em { position:absolute; display:block; }
-.cover-variant-0 .cover-art i { width:125%; height:48%; left:-18%; bottom:12%; border-radius:50% 50% 0 0; background:var(--cover-c); transform:rotate(-14deg); }
-.cover-variant-0 .cover-art b { width:55%; aspect-ratio:1; right:-18%; top:36%; border:1px solid rgba(255,255,255,.45); border-radius:50%; }
-.cover-variant-1 .cover-art i { inset:35% -30% -15%; background:repeating-radial-gradient(ellipse at 50% 100%,transparent 0 13px,rgba(255,255,255,.3) 14px 15px); transform:rotate(9deg); }
-.cover-variant-1 .cover-title { top:auto; bottom:22%; padding:12% 8%; background:rgba(10,20,22,.48); backdrop-filter:blur(4px); }
-.cover-variant-2 .cover-art i { width:78%; height:78%; left:var(--shape-x); top:var(--shape-y); border-radius:42% 58% 63% 37% / 47% 38% 62% 53%; background:var(--cover-c); transform:translate(-50%,-50%) rotate(28deg); opacity:.68; }
-.cover-variant-2 .cover-art b { inset:15%; border:1px solid rgba(255,255,255,.35); }
-.cover-variant-3 .cover-art { background:repeating-linear-gradient(135deg,transparent 0 16px,rgba(255,255,255,.18) 17px 19px); }
-.cover-variant-3 .cover-title { top:34%; padding-left:10%; border-left:3px solid var(--cover-c); }
-.cover-variant-4 .cover-art i { width:140%; height:42%; left:-18%; top:39%; background:var(--cover-c); transform:rotate(-22deg); box-shadow:0 18px 0 rgba(255,255,255,.16); }
-.cover-variant-4 .cover-title { top:12%; color:#fff; }
-.cover-variant-5 .cover-art i { width:82%; aspect-ratio:1; left:9%; top:28%; background:conic-gradient(from 20deg,var(--cover-c),transparent,var(--cover-c)); clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%); opacity:.72; }
-.cover-variant-5 .cover-title { top:28%; text-align:center; }
-.cover-variant-6 .cover-art { background-image:radial-gradient(rgba(255,255,255,.38) 1px,transparent 1px); background-size:12px 12px; }
-.cover-variant-6 .cover-art i { width:90%; height:30%; left:18%; bottom:10%; border-radius:70% 0 0; background:var(--cover-c); transform:rotate(-8deg); }
-.cover-variant-7 .cover-art i { inset:18% 14%; border:1px solid rgba(255,255,255,.45); box-shadow:8px 8px 0 rgba(255,255,255,.12),16px 16px 0 rgba(255,255,255,.08); }
-.cover-variant-7 .cover-title { top:38%; text-align:center; }
+.book-card:hover .book-cover { transform:translateY(-3px); box-shadow:0 12px 24px rgba(29,25,17,.18); }
+.book-cover img { display:block; width:100%; height:100%; object-fit:cover; }
+.book-cover-fallback {
+  display:flex;
+  height:100%;
+  flex-direction:column;
+  justify-content:center;
+  padding:15%;
+  color:#272621;
+  background:linear-gradient(155deg,#eee9de,#dcd4c5);
+  text-align:center;
+}
+.book-cover-fallback span { margin-bottom:18%; font-size:8px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#777067; }
+.book-cover-fallback strong { display:-webkit-box; overflow:hidden; font-family:var(--font-serif); font-size:clamp(15px,1.35vw,23px); line-height:1.08; -webkit-box-orient:vertical; -webkit-line-clamp:5; }
+.book-cover-fallback small { margin-top:14%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:#6f6960; }
 
 .reader-theme-light { --reader-paper:#f8f3e8; --reader-paper-edge:#dfd5c1; --reader-ink:#28251f; --reader-desk:#e8e4da; }
 .reader-theme-sepia { --reader-paper:#ead8b5; --reader-paper-edge:#cbb489; --reader-ink:#4d3928; --reader-desk:#cfc3aa; }
