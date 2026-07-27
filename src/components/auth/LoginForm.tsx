@@ -8,8 +8,7 @@ import { signIn } from '@/lib/supabase/auth'
 
 export function LoginForm() {
   const router = useRouter()
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,7 +18,7 @@ export function LoginForm() {
     setError('')
     setLoading(true)
     try {
-      await signIn(email, password)
+      await signIn(identifier, password)
       router.replace('/')
       router.refresh()
     } catch (cause) {
@@ -31,19 +30,8 @@ export function LoginForm() {
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <label className="block">
-        <span className="mb-2 block text-xs font-medium">Nome</span>
-        <input className="field" value={name} onChange={(event) => setName(event.target.value)} placeholder="Seu nome" autoComplete="name" minLength={2} required />
-      </label>
-      <label className="block">
-        <span className="mb-2 block text-xs font-medium">E-mail</span>
-        <input className="field" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="seu@email.com" type="email" autoComplete="email" required />
-      </label>
-      <label className="block">
-        <span className="mb-2 block text-xs font-medium">Senha</span>
-        <input className="field" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Sua senha" type="password" autoComplete="current-password" required />
-      </label>
-      <p className="text-[10px] leading-relaxed text-muted">Seu e-mail identifica sua conta. Você pode entrar com a mesma conta em qualquer dispositivo.</p>
+      <label className="block"><span className="mb-2 block text-xs font-medium">E-mail ou apelido</span><input className="field" value={identifier} onChange={(event) => setIdentifier(event.target.value)} placeholder="seu@email.com ou @apelido" autoComplete="username" required /></label>
+      <label className="block"><span className="mb-2 block text-xs font-medium">Senha</span><input className="field" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Sua senha" type="password" autoComplete="current-password" required /></label>
       {error && <p className="rounded-lg bg-coral/10 p-3 text-xs text-coral" role="alert">{error}</p>}
       <button className="primary-btn w-full" disabled={loading}>{loading ? <LoaderCircle className="animate-spin" size={18} /> : <>Entrar <ArrowRight size={17} /></>}</button>
       <p className="text-center text-xs text-muted">Ainda não tem conta? <Link href="/auth/signup" className="font-semibold text-coral hover:underline">Criar conta</Link></p>

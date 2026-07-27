@@ -9,6 +9,12 @@ export interface ParsedBook {
   author: string
   pages: string[]
   format: Exclude<BookFormat, 'readr'>
+  description?: string
+  language?: string
+  publisher?: string
+  publicationYear?: number | null
+  coverBlob?: Blob | null
+  coverExtension?: string
 }
 
 const WORDS_PER_PAGE = 280
@@ -58,6 +64,15 @@ async function parsePdf(file: File) {
   pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
   const document = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
   const pages: string[] = []
+  let coverBlob: Blob | null = null
+  let title = ''
+  let author = ''
+  try {
+    const metadata = await document.getMetadata()
+    const info = metadata.info as Record<string, unknown>
+    title = typeof info.Title === 'string' ? info.Title : ''
+    author = typeof info.Author === 'string' ? info.Author : ''
+  } catch {}
 
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
     const page = await document.getPage(pageNumber)
@@ -68,9 +83,22 @@ async function parsePdf(file: File) {
       .replace(/\s+/g, ' ')
       .trim()
     if (text) pages.push(`<p class="dropcap">${escapeHtml(text)}</p>`)
+    if (pageNumber === 1) {
+      try {
+        const viewport = page.getViewport({ scale: 1.2 })
+        const canvas = window.document.createElement('canvas')
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+        const context = canvas.getContext('2d')
+        if (context) {
+          await page.render({ canvasContext: context, viewport }).promise
+          coverBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86))
+        }
+      } catch {}
+    }
   }
 
-  return pages
+  return { pages, title, author, coverBlob }
 }
 
 async function parseEpub(file: File) {
@@ -88,14 +116,40 @@ async function parseEpub(file: File) {
   const packageXml = new DOMParser().parseFromString(packageText, 'application/xml')
   const title = packageXml.querySelector('metadata > title, dc\\:title')?.textContent?.trim() || ''
   const author = packageXml.querySelector('metadata > creator, dc\\:creator')?.textContent?.trim() || ''
+  const description = packageXml.querySelector('metadata > description, dc\\:description')?.textContent?.trim() || ''
+  const language = packageXml.querySelector('metadata > language, dc\\:language')?.textContent?.trim() || ''
+  const publisher = packageXml.querySelector('metadata > publisher, dc\\:publisher')?.textContent?.trim() || ''
+  const date = packageXml.querySelector('metadata > date, dc\\:date')?.textContent?.trim() || ''
   const basePath = packagePath.includes('/') ? packagePath.slice(0, packagePath.lastIndexOf('/') + 1) : ''
   const manifest = new Map<string, string>()
+  let coverHref = ''
 
   packageXml.querySelectorAll('manifest item').forEach((item) => {
     const id = item.getAttribute('id')
     const href = item.getAttribute('href')
-    if (id && href) manifest.set(id, decodeURIComponent(href.split('#')[0]))
+    if (id && href) {
+      const decoded = decodeURIComponent(href.split('#')[0])
+      manifest.set(id, decoded)
+      if (item.getAttribute('properties')?.includes('cover-image')) coverHref = decoded
+    }
   })
+
+  if (!coverHref) {
+    const coverId = packageXml.querySelector('metadata meta[name="cover"]')?.getAttribute('content') || ''
+    coverHref = manifest.get(coverId) || ''
+  }
+  let coverBlob: Blob | null = null
+  if (coverHref) {
+    const coverFile = zip.file(`${basePath}${coverHref}`)
+    if (coverFile) {
+      const bytes = await coverFile.async('uint8array')
+      const copy = new Uint8Array(bytes.byteLength)
+      copy.set(bytes)
+      const extension = coverHref.split('.').pop()?.toLowerCase() || 'jpg'
+      const type = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg'
+      coverBlob = new Blob([copy.buffer], { type })
+    }
+  }
 
   const chapterTexts: string[] = []
   for (const item of Array.from(packageXml.querySelectorAll('spine itemref'))) {
@@ -110,7 +164,7 @@ async function parseEpub(file: File) {
     if (text) chapterTexts.push(text)
   }
 
-  return { title, author, pages: textToPages(chapterTexts.join('\n\n')) }
+  return { title, author, description, language, publisher, publicationYear: Number(date.slice(0, 4)) || null, coverBlob, coverExtension: coverHref.split('.').pop()?.toLowerCase() || 'jpg', pages: textToPages(chapterTexts.join('\n\n')) }
 }
 
 export async function parseBookFile(file: File): Promise<ParsedBook> {
@@ -124,12 +178,12 @@ export async function parseBookFile(file: File): Promise<ParsedBook> {
   }
 
   if (format === 'pdf') {
-    const pages = await parsePdf(file)
-    if (!pages.length) throw new Error('O PDF não contém texto selecionável.')
-    return { title: fallbackTitle, author: '', pages, format }
+    const pdf = await parsePdf(file)
+    if (!pdf.pages.length) throw new Error('O PDF não contém texto selecionável.')
+    return { title: pdf.title || fallbackTitle, author: pdf.author, pages: pdf.pages, format, coverBlob: pdf.coverBlob, coverExtension: 'jpg' }
   }
 
   const epub = await parseEpub(file)
   if (!epub.pages.length) throw new Error('O EPUB não contém capítulos legíveis.')
-  return { title: epub.title || fallbackTitle, author: epub.author, pages: epub.pages, format }
+  return { title: epub.title || fallbackTitle, author: epub.author, description: epub.description, language: epub.language, publisher: epub.publisher, publicationYear: epub.publicationYear, coverBlob: epub.coverBlob, coverExtension: epub.coverExtension, pages: epub.pages, format }
 }

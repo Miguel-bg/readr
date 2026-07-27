@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Compass, Home, Library, Menu, Settings } from 'lucide-react'
+import { BookOpen, Compass, Home, Library, Menu, Settings, Users } from 'lucide-react'
 
 const items = [
   { href: '/', label: 'Início', icon: Home, exact: true },
-  { href: '/library', label: 'Biblioteca', icon: Library, exact: true },
+  { href: '/library', label: 'Minha Estante', icon: Library, exact: true },
   { href: '/library/created', label: 'Criados', icon: BookOpen },
-  { href: '/library/community', label: 'Descobrir', icon: Compass },
+  { href: '/library/community', label: 'Biblioteca', icon: Compass },
+  { href: '/community', label: 'Comunidade', icon: Users },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ]
 

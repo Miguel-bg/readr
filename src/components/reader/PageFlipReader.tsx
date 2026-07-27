@@ -1,7 +1,7 @@
 'use client'
 
 import FlipBook from 'react-pageflip'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ChevronLeft, ChevronRight, LoaderCircle, RotateCcw } from 'lucide-react'
 import { CreatedBookSource, ImportedBookSource } from '@/lib/reader/ReaderSource'
@@ -31,6 +31,7 @@ interface BookDimensions { width: number; height: number; portrait: boolean }
 
 export function PageFlipReader({ bookId }: { bookId: string }) {
   const search = useSearchParams()
+  const router = useRouter()
   const source = search.get('source') === 'created' ? 'created' : 'imported'
   const flipRef = useRef<any>(null)
   const stageRef = useRef<HTMLElement>(null)
@@ -44,7 +45,7 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
   const [progressError, setProgressError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const [dimensions, setDimensions] = useState<BookDimensions>({ width: 360, height: 520, portrait: true })
-  const { currentPage, setPage, theme } = useReaderStore()
+  const { currentPage, setPage, theme, brightness, pageGap, viewMode, animation, renderQuality, engine, showChapters, showThumbnails } = useReaderStore()
 
   useEffect(() => {
     const stage = stageRef.current
@@ -75,20 +76,20 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
       setLoading(true); setError(''); setProgressError('')
       try {
         const currentProfile = await getCurrentProfile()
-        if (!currentProfile) throw new Error('Entre na sua conta para abrir o leitor.')
+        if (!currentProfile) { router.replace(`/auth/login?next=${encodeURIComponent(`/book/${bookId}?source=${source}`)}`); return }
         let loadedBook: Book | null
         let loadedPages: ReaderPage[]
         if (source === 'created') {
           const created = await getCreatedBook(bookId)
           loadedBook = created
           loadedPages = created ? await new CreatedBookSource(created, created.chapters || []).load() : []
-          if (created) await registerBookRead(bookId, currentProfile.id, created.user_id)
         } else {
           loadedBook = await getImportedBook(bookId)
           loadedPages = loadedBook ? await new ImportedBookSource(loadedBook).load() : []
         }
         if (!loadedBook) throw new Error('Livro não encontrado ou acesso não permitido.')
         if (!loadedPages.length) throw new Error('Este livro ainda não possui conteúdo legível.')
+        await registerBookRead(bookId, source)
         const progress = await getReadingProgress(currentProfile.id, loadedBook.id, loadedBook.source)
         const page = Math.min(progress?.current_page || 0, loadedPages.length - 1)
         if (!active) return
@@ -99,7 +100,7 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
     }
     load()
     return () => { active = false }
-  }, [bookId, source, setPage, reloadKey])
+  }, [bookId, source, setPage, reloadKey, router])
 
   useEffect(() => {
     if (!profile || !book || !pages.length) return
@@ -138,14 +139,24 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
 
   const percentage = useMemo(() => pages.length ? Math.round(((currentPage + 1) / pages.length) * 100) : 0, [currentPage, pages.length])
   const chapter = pages[currentPage]?.chapterTitle || pages[0]?.chapterTitle || ''
+  const searchPages = useCallback((query: string) => {
+    const normalized = query.trim().toLocaleLowerCase('pt-BR')
+    if (!normalized) return
+    const found = pages.findIndex((item) => item.html.replace(/<[^>]+>/g, ' ').toLocaleLowerCase('pt-BR').includes(normalized))
+    if (found >= 0) { setPage(found); window.setTimeout(() => goTo(found), 0) }
+  }, [pages, goTo, setPage])
+  const flipTime = animation === 'fade' ? 360 : animation === 'apple' ? 520 : animation === 'real-page' ? 720 : 480
 
   return (
-    <main className={`reader-shell reader-theme-${theme}`}>
-      {book && <div className="reader-toolbar-wrap"><ReaderToolbar title={book.title} chapter={chapter} /></div>}
+    <main className={`reader-shell reader-theme-${theme} reader-quality-${renderQuality} reader-engine-${engine} reader-animation-${animation}`} style={{ filter: `brightness(${brightness}%)`, ['--reader-page-gap' as string]: `${pageGap}px` }}>
+      {book && <div className="reader-toolbar-wrap"><ReaderToolbar title={book.title} chapter={chapter} bookId={book.id} source={book.source} currentPage={currentPage} onSearch={searchPages} /></div>}
       <section ref={stageRef} className="reader-stage">
         {loading && <div className="reader-status"><LoaderCircle className="animate-spin" /><p>Preparando suas páginas…</p></div>}
         {!loading && error && <div className="reader-status max-w-md text-center"><AlertCircle /><p>{error}</p><button onClick={() => setReloadKey((value) => value + 1)} className="secondary-btn !min-h-10"><RotateCcw size={15} /> Tentar novamente</button></div>}
         {!loading && !error && book && pages.length > 0 && <>
+          {showChapters && <aside className="reader-side-panel reader-chapters-panel"><h2>Capítulos</h2>{Array.from(new Set(pages.map((item) => item.chapterTitle))).map((title) => { const index = pages.findIndex((item) => item.chapterTitle === title); return <button key={`${title}-${index}`} onClick={() => { setPage(index); goTo(index) }}>{title || `Página ${index + 1}`}</button> })}</aside>}
+          {showThumbnails && <aside className="reader-side-panel reader-thumbnails-panel"><h2>Miniaturas</h2>{pages.map((item, index) => <button key={index} onClick={() => { setPage(index); goTo(index) }} className={index === currentPage ? 'is-active' : ''}>{index + 1}</button>)}</aside>}
+          {viewMode === 'scroll' ? <section className="reader-scroll-view">{pages.map((item) => <Page key={`${item.pageNumber}-${item.chapterTitle}`} page={item} total={pages.length} />)}</section> : <>
           <button onClick={previous} className="reader-arrow reader-arrow-left" aria-label="Página anterior"><ChevronLeft /></button>
           <div className={`pageflip-frame ${dimensions.portrait ? 'is-portrait' : 'is-spread'}`} style={{ width: dimensions.portrait ? dimensions.width : dimensions.width * 2, height: dimensions.height }}>
             <HTMLFlipBook
@@ -165,7 +176,7 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
               swipeDistance={24}
               clickEventForward={true}
               drawShadow={true}
-              flippingTime={720}
+              flippingTime={flipTime}
               startPage={initialPage}
               usePortrait={dimensions.portrait}
               startZIndex={0}
@@ -180,6 +191,7 @@ export function PageFlipReader({ bookId }: { bookId: string }) {
             </HTMLFlipBook>
           </div>
           <button onClick={next} className="reader-arrow reader-arrow-right" aria-label="Próxima página"><ChevronRight /></button>
+          </>}
         </>}
       </section>
       {book && pages.length > 0 && <footer className="reader-footer">

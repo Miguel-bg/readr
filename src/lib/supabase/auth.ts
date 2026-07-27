@@ -2,42 +2,38 @@
 
 import { createClient } from './client'
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase()
+function normalizeIdentifier(value: string) {
+  return value.trim().toLocaleLowerCase('pt-BR').replace(/^@/, '')
 }
 
-export async function signUp(displayName: string, email: string, password: string) {
-  const name = displayName.trim()
-  const normalizedEmail = normalizeEmail(email)
-
-  if (name.length < 2) throw new Error('Informe seu nome com pelo menos 2 caracteres.')
-  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Informe um e-mail válido.')
-  if (password.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres.')
-
-  const result = await createClient().auth.signUp({
-    email: normalizedEmail,
-    password,
-    options: {
-      data: { display_name: name },
-    },
+export async function signUp(displayName: string, nickname: string, email: string, password: string) {
+  const normalizedEmail = email.trim().toLowerCase()
+  const response = await fetch('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName: displayName.trim(), nickname: normalizeIdentifier(nickname), email: normalizedEmail, password }),
   })
-
-  if (result.error) throw result.error
-  return result.data
+  const result = await response.json() as { ok?: boolean; error?: string }
+  if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível criar a conta.')
+  return signIn(normalizedEmail, password)
 }
 
-export async function signIn(email: string, password: string) {
-  const normalizedEmail = normalizeEmail(email)
-  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Informe o e-mail usado no cadastro.')
+export async function signIn(identifier: string, password: string) {
+  const normalized = normalizeIdentifier(identifier)
+  if (!normalized) throw new Error('Informe seu e-mail ou apelido.')
   if (!password) throw new Error('Informe sua senha.')
 
-  const result = await createClient().auth.signInWithPassword({
-    email: normalizedEmail,
-    password,
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: normalized, password }),
   })
+  const result = await response.json() as { access_token?: string; refresh_token?: string; error?: string }
+  if (!response.ok || !result.access_token || !result.refresh_token) throw new Error(result.error || 'Não foi possível entrar.')
 
-  if (result.error) throw result.error
-  return result.data
+  const { data, error } = await createClient().auth.setSession({ access_token: result.access_token, refresh_token: result.refresh_token })
+  if (error) throw error
+  return data
 }
 
 export async function signOut() {

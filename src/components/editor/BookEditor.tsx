@@ -17,6 +17,12 @@ export function BookEditor({ bookId }: { bookId?: string }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
+  const [description, setDescription] = useState('')
+  const [genre, setGenre] = useState('')
+  const [language, setLanguage] = useState('Português')
+  const [publisher, setPublisher] = useState('')
+  const [publishedYear, setPublishedYear] = useState('')
+  const [tags, setTags] = useState('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [chapters, setChapters] = useState<Chapter[]>([emptyChapter(0)])
@@ -36,7 +42,7 @@ export function BookEditor({ bookId }: { bookId?: string }) {
         if (!bookId) { setAuthor(p.display_name); return }
         const book = await getCreatedBook(bookId)
         if (!book || book.user_id !== p.id) { setError('Somente o proprietário pode editar este livro.'); return }
-        setTitle(book.title); setAuthor(book.author); setCoverUrl(book.cover_url || null)
+        setTitle(book.title); setAuthor(book.author); setDescription(book.description || ''); setGenre(book.genre || ''); setLanguage(book.language || 'Português'); setPublisher(book.publisher || ''); setPublishedYear(book.published_year ? String(book.published_year) : ''); setTags((book.tags || []).join(', ')); setCoverUrl(book.cover_url || null)
         setChapters(book.chapters?.sort((a, b) => a.order_index - b.order_index) || [emptyChapter(0)])
       } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível carregar o editor.') }
       finally { if (active) setLoading(false) }
@@ -64,14 +70,14 @@ export function BookEditor({ bookId }: { bookId?: string }) {
     try {
       let finalCover = coverUrl
       if (coverFile) finalCover = await uploadCover(coverFile, profile.id)
-      const payload: CreateBookPayload = { title: title.trim(), author: author.trim(), cover_url: finalCover, status, chapters: chapters.map((c, i) => ({ title: c.title || `Capítulo ${i + 1}`, content: c.content, order_index: i })) }
+      const payload: CreateBookPayload = { title: title.trim(), author: author.trim(), description: description.trim(), genre: genre.trim(), language: language.trim() || 'Português', publisher: publisher.trim(), published_year: publishedYear ? Number(publishedYear) : null, tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean), cover_url: finalCover, status, chapters: chapters.map((c, i) => ({ title: c.title || `Capítulo ${i + 1}`, content: c.content, order_index: i })) }
       if (bookId) { await updateBook(bookId, payload, profile.id); router.push(`/book/${bookId}?source=created`) }
       else { const id = await createBook(payload, profile.id); router.push(`/book/${id}?source=created`) }
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o livro.') }
     finally { setSaving(false) }
   }
 
-  const previewBook: CreatedBook = { id: bookId || `preview-${title}`, user_id: profile?.id || '', title: title || 'Digite um título', author, cover_url: coverUrl, format: 'readr', source: 'created', total_pages: chapters.length, status: 'draft', reads_count: 0, created_at: '' }
+  const previewBook: CreatedBook = { id: bookId || `preview-${title}`, user_id: profile?.id || '', title: title || 'Digite um título', author, description, genre, language, publisher, published_year: publishedYear ? Number(publishedYear) : null, tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean), cover_url: coverUrl, format: 'readr', source: 'created', total_pages: chapters.length, status: 'draft', reads_count: 0, created_at: '' }
 
   if (loading) return <AppShell><section className="grid min-h-[60vh] place-items-center"><LoaderCircle className="animate-spin" /></section></AppShell>
 
@@ -91,7 +97,11 @@ export function BookEditor({ bookId }: { bookId?: string }) {
             <button onClick={() => fileRef.current?.click()} className="mt-4 flex w-full items-center justify-center gap-2 text-[10px] text-muted hover:text-ink"><ImagePlus size={15} /> Enviar capa</button>
             <label className="mt-5 block"><span className="mb-1.5 block text-[10px] font-medium">Título</span><input className="field !py-2.5" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
             <label className="mt-3 block"><span className="mb-1.5 block text-[10px] font-medium">Autor</span><input className="field !py-2.5" value={author} onChange={(e) => setAuthor(e.target.value)} /></label>
-            <p className="mt-4 text-[9px] leading-relaxed text-muted">Sem capa? Usaremos uma composição editorial do Readr. <span className="block">// TODO Fase 2: geração por IA.</span></p>
+            <label className="mt-3 block"><span className="mb-1.5 block text-[10px] font-medium">Descrição</span><textarea className="field min-h-20 resize-none !py-2.5" value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+            <div className="mt-3 grid grid-cols-2 gap-2"><label><span className="mb-1.5 block text-[10px] font-medium">Gênero</span><input className="field !px-2 !py-2" value={genre} onChange={(e) => setGenre(e.target.value)} /></label><label><span className="mb-1.5 block text-[10px] font-medium">Idioma</span><input className="field !px-2 !py-2" value={language} onChange={(e) => setLanguage(e.target.value)} /></label></div>
+            <div className="mt-3 grid grid-cols-2 gap-2"><label><span className="mb-1.5 block text-[10px] font-medium">Editora</span><input className="field !px-2 !py-2" value={publisher} onChange={(e) => setPublisher(e.target.value)} /></label><label><span className="mb-1.5 block text-[10px] font-medium">Ano</span><input className="field !px-2 !py-2" inputMode="numeric" value={publishedYear} onChange={(e) => setPublishedYear(e.target.value.replace(/\D/g, '').slice(0, 4))} /></label></div>
+            <label className="mt-3 block"><span className="mb-1.5 block text-[10px] font-medium">Tags, separadas por vírgulas</span><input className="field !py-2.5" value={tags} onChange={(e) => setTags(e.target.value)} /></label>
+            <p className="mt-4 text-[9px] leading-relaxed text-muted">Sem capa? Usaremos uma composição editorial original do Readr.</p>
           </aside>
 
           <aside className="panel p-4">

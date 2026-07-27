@@ -8,7 +8,7 @@ import { BookCard } from '@/components/books/BookCard'
 import { CreateBookCard } from '@/components/books/CreateBookCard'
 import { ContinueReadingHero } from './ContinueReadingHero'
 import { CustomizationPanel } from '@/components/customization/CustomizationPanel'
-import { getContinueReading, getCreatedBooks, getCurrentProfile, getImportedLibrary, type ContinueReadingData } from '@/lib/data'
+import { getCatalogBooks, getContinueReading, getCreatedBooks, getCurrentProfile, getImportedLibrary, type ContinueReadingData } from '@/lib/data'
 import type { Book, CreatedBook, UserProfile } from '@/lib/types'
 
 export function Dashboard() {
@@ -16,6 +16,7 @@ export function Dashboard() {
   const [imported, setImported] = useState<Book[]>([])
   const [created, setCreated] = useState<CreatedBook[]>([])
   const [reading, setReading] = useState<ContinueReadingData | null>(null)
+  const [catalog, setCatalog] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
@@ -25,9 +26,10 @@ export function Dashboard() {
     async function load() {
       setLoading(true); setError('')
       try {
-        const current = await getCurrentProfile()
+        const [current, publicCatalog] = await Promise.all([getCurrentProfile(), getCatalogBooks()])
         if (!active) return
         setProfile(current)
+        setCatalog(publicCatalog)
         if (!current) return
         const [ownedImports, authoredBooks, currentReading] = await Promise.all([
           getImportedLibrary(current.id), getCreatedBooks(current.id), getContinueReading(current.id),
@@ -69,6 +71,10 @@ export function Dashboard() {
             {loading ? <BookSkeletons count={3} /> : created.slice(0, 3).map((book) => <BookCard key={book.id} book={book} />)}
             {!loading && profile && !created.length && <div className="col-span-3 flex items-center justify-center px-5 text-center text-[10px] leading-relaxed text-muted">Seus livros aparecerão aqui após serem criados.</div>}
           </LibraryPanel>
+        </section>
+        <section className="panel mt-6 p-5 sm:p-7">
+          <header className="mb-6 flex items-end justify-between"><div><p className="eyebrow">Mais lidos</p><h2 className="mt-2 font-serif text-3xl">Biblioteca</h2></div><Link href="/library/community" className="text-xs font-semibold hover:underline">Ver mais</Link></header>
+          {loading ? <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 12 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded bg-black/5" />)}</section> : catalog.length ? <section className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">{catalog.slice(0, 12).map((book, index) => <BookCard key={`${book.source}-${book.id}`} book={book} highlighted={index < 3 && Number(book.reads_count || 0) > 0} />)}</section> : <p className="rounded-xl border border-dashed border-line py-12 text-center text-xs text-muted">A biblioteca pública ainda não possui livros.</p>}
         </section>
         <CustomizationPanel />
       </section>

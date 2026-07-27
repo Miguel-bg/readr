@@ -1,62 +1,65 @@
 # Readr
 
-Aplicação funcional de leitura, importação e autoria construída com Next.js 14 App Router, React, TypeScript, Tailwind CSS, Supabase, Zustand e `react-pageflip`.
+Aplicativo social de leitura, importação e autoria construído com Next.js 14 App Router, React 18, TypeScript strict, Tailwind CSS, Supabase, Zustand, `react-pageflip` e Lucide.
 
 ## Funcionalidades concluídas
 
-- Cadastro com nome, e-mail real e senha escolhida pelo usuário.
-- Login com e-mail e senha, com sessão persistente do Supabase Auth em diferentes dispositivos.
-- E-mail como identidade única da conta.
-- Ausência de sessão tratada como estado normal, sem exibir `Auth session missing!`.
-- Perfil com nome em `user_metadata`/`profiles` e avatar no Storage.
-- Biblioteca sem usuários, livros ou progresso demonstrativos.
-- Importação persistente de EPUB, PDF e DOCX.
-- Parsing no navegador com JSZip, PDF.js e Mammoth.
-- Livros importados legíveis por todos os usuários autenticados.
-- Livros autorais publicados legíveis por todos os usuários autenticados.
-- Somente o proprietário pode alterar ou excluir seus livros.
-- Área **Descobrir** reunindo importados e publicações de outros usuários.
-- Progresso persistido por usuário, livro e origem.
-- Contador real de leituras para livros autorais publicados.
-- Leitor responsivo: livro aberto no desktop e página única no mobile.
-- Capas retangulares planas em proporção 2:3, imagem com `object-fit: cover`, bordas discretas e textos abaixo do card.
-- Loading, error e empty states sem fallback para mocks.
+- Cadastro real com nome, apelido único, e-mail e senha.
+- Cadastro server-side com usuário já confirmado (`email_confirm: true`) e login automático, sem tela intermediária de confirmação.
+- Login por e-mail **ou apelido**; sessão persistente do Supabase Auth em qualquer dispositivo.
+- Perfil público com apelido, ID aleatório de oito dígitos, bio e avatar.
+- Tradução global de menus, botões, formulários, mensagens e conteúdo de interface para Português, English ou Español pelo seletor no perfil. A preferência fica salva no navegador.
+- Biblioteca pública visível para visitantes, com detalhes e metadados; leitura exige conta.
+- Home com até 12 livros mais lidos e botão **Ver mais**.
+- Minha Estante com salvos, Quero ler, Lendo, Concluídos, importados e livros autorais.
+- Busca, ordenação e filtros por gênero, autor, idioma, editora, tags, ano, lançamentos, origem, status, tamanho e avaliação.
+- Cards 2:3 com contador de leitores, destaque coral nos mais lidos e configurações somente para o proprietário.
+- Página de detalhes com descrição, avaliação, reviews, likes, dislikes, leitores, salvar e Ler agora.
+- Leituras únicas por usuário; leitura do proprietário não incrementa o contador.
+- Importação EPUB/PDF/DOCX com conteúdo persistente, metadados EPUB e capa automática do EPUB ou primeira página do PDF.
+- Gerenciamento de importados: editar título, autor, descrição e capa ou excluir.
+- Editor autoral com rascunho/publicação, capítulos reordenáveis, descrição, gênero, idioma, editora, ano e tags.
+- Comunidade com busca por nome/apelido/ID, perfis aleatórios, seguir/deixar de seguir, seguidores, atividade e ranking.
+- Leitor desktop em spread e mobile em página única, com progresso, temas, fonte, margem, espaçamento, brilho, pesquisa, capítulos, miniaturas, bookmarks, scroll, text reflow, qualidade, engine e estilos de animação.
+- Nenhum usuário, livro, capa comercial ou dado demonstrativo.
 
-## Rotas
+## Rotas funcionais
 
 | Rota | Função |
 |---|---|
-| `/` | Dashboard e última leitura |
-| `/auth/login` | Login por nome, e-mail e senha |
-| `/auth/signup` | Cadastro por nome, e-mail e senha |
-| `/library` | Importações do usuário atual |
-| `/library/created` | Livros criados pelo usuário atual |
-| `/library/community` | Importados e livros publicados por outros usuários |
-| `/import` | Importação de EPUB/PDF/DOCX |
+| `/` | Dashboard, continuar leitura e Mais Lidos |
+| `/auth/signup` | Cadastro com nome, apelido, e-mail e senha |
+| `/auth/login` | Login com e-mail ou apelido |
+| `/library` | Minha Estante |
+| `/library/community?query=` | Biblioteca pública e filtros |
+| `/library/created` | Livros criados pelo usuário |
+| `/community` | Pessoas e rankings |
+| `/profile` | Perfil, idioma, avatar e logout |
+| `/profile/[id]` | Perfil público, métricas e atividade |
+| `/import` | Importação EPUB/PDF/DOCX |
 | `/create` | Novo livro autoral |
-| `/book/[id]?source=imported` | Leitor de livro importado |
-| `/book/[id]?source=created` | Leitor de livro autoral |
-| `/book/[id]/edit` | Editor protegido por proprietário e RLS |
+| `/book/[id]/details?source=imported|created` | Detalhes públicos |
+| `/book/[id]?source=imported|created` | Leitor autenticado |
+| `/book/[id]/manage` | Gerenciar importado próprio |
+| `/book/[id]/edit` | Editar livro autoral próprio |
 | `/settings` | Preferências de leitura |
-| `/profile` | Perfil, avatar e logout |
+| `/api/auth/signup` | Cadastro confirmado no servidor |
+| `/api/auth/login` | Resolução segura de e-mail/apelido e sessão |
 
-As bibliotecas aceitam `?query=texto` para busca.
+## Arquitetura de dados
 
-## Configuração do Supabase
+- **Supabase Auth:** usuários e sessões.
+- **Postgres:** `profiles`, `account_aliases`, `books`, `created_books`, `chapters`, `reading_progress`, `book_reads`, `shelf_items`, `book_reactions`, `reviews`, `follows`, `activities`, `bookmarks` e `customization_settings`.
+- **RLS:** metadados públicos, conteúdo somente para autenticados e escrita somente pelo proprietário.
+- **Grants por coluna:** visitantes não recebem `books.content`.
+- **Storage:** `covers` e `avatars` públicos; `uploads` privado por usuário.
+- **Zustand:** estado imediato e opções avançadas do leitor.
+
+## Configuração obrigatória do Supabase
 
 1. Crie um projeto no Supabase.
-2. Abra **SQL Editor**.
-3. Execute integralmente [`supabase/schema.sql`](supabase/schema.sql).
-4. Se você já executou uma versão anterior, execute o arquivo novamente. Ele remove a policy privada antiga de `books` e cria as policies públicas de leitura autenticada, mantendo escrita apenas para o proprietário.
-5. Confirme as tabelas `profiles`, `books`, `created_books`, `chapters`, `reading_progress` e `customization_settings`.
-6. Confirme os buckets `covers`, `avatars` e `uploads`.
-7. Em **Authentication → Providers → Email**, escolha uma destas opções:
-   - para acesso imediato nesta fase simples, desative **Confirm email**;
-   - se mantiver a confirmação ativa, o cadastro mostrará uma mensagem pedindo confirmação antes do primeiro login.
-
-No ambiente Supabase verificado em 25/07/2026, o provedor de e-mail está habilitado e a confirmação de e-mail está **obrigatória**. Para entrar imediatamente após o cadastro, desative **Confirm email** no painel; essa configuração não pode ser ignorada pelo frontend.
-
-8. Copie `.env.example` para `.env.local` e preencha:
+2. Execute integralmente `supabase/schema.sql` no SQL Editor. O arquivo é idempotente e também faz backfill de IDs/aliases possíveis.
+3. Copie `.env.example` para `.env.local`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
@@ -64,43 +67,26 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-A service-role key não é usada no navegador e nunca deve ser exposta ou commitada.
+4. Reinicie o servidor após alterar variáveis.
 
-### Por que aparecia `Auth session missing!`
+`SUPABASE_SERVICE_ROLE_KEY` é obrigatória para o cadastro sem confirmação e login por apelido. Ela deve existir **somente no servidor** e nunca pode ser prefixada com `NEXT_PUBLIC_`, exposta no navegador ou commitada. A chave não está configurada no sandbox atual; por isso o build funciona, mas o teste real de cadastro retorna 503 até ela ser adicionada.
 
-A versão anterior chamava `auth.getUser()` e lançava `AuthSessionMissingError` quando o visitante ainda não possuía sessão. Agora o app consulta a sessão persistida e retorna perfil `null` quando não existe usuário autenticado. Isso é um estado normal, não um erro.
+## Uso
 
-## RLS e modelo de acesso
+1. Crie uma conta; o login ocorre automaticamente.
+2. Importe um EPUB/PDF/DOCX ou crie um livro com capítulos.
+3. Publique para disponibilizar imediatamente na Biblioteca pública.
+4. Abra os detalhes para salvar, reagir, avaliar ou iniciar a leitura.
+5. Use Minha Estante para acompanhar status e progresso.
+6. Em Comunidade, busque leitores e acompanhe rankings.
+7. Em Perfil, selecione Português, English ou Español para traduzir toda a interface.
 
-- `books`: qualquer usuário autenticado pode ler; somente `user_id = auth.uid()` pode inserir, atualizar ou excluir.
-- `created_books`: rascunhos são privados; publicações são legíveis por autenticados; somente o proprietário escreve.
-- `chapters`: acompanham a visibilidade e a propriedade do livro autoral.
-- `reading_progress`: cada usuário acessa somente seu próprio progresso.
-- `profiles`: cada usuário lê e atualiza seu próprio perfil.
-- `uploads`: os arquivos originais permanecem privados; a leitura compartilhada usa o conteúdo extraído persistido em `books.content`.
-
-## Teste multiusuário recomendado
-
-1. Com confirmação de e-mail desativada, crie a conta A usando nome, e-mail e senha.
-2. Importe um EPUB/PDF/DOCX e publique um livro autoral.
-3. Saia e crie a conta B com outro e-mail.
-4. Em `/library/community`, confirme que a conta B vê e lê os dois livros da conta A.
-5. Avance páginas e confirme a retomada após logout/login.
-6. Tente abrir `/book/[id]/edit` com a conta B; a UI e a RLS devem impedir edição.
-7. Entre novamente na conta A, inclusive em outro dispositivo, e confirme a edição normal.
-
-## Desenvolvimento local
+## Desenvolvimento
 
 Requer Node.js 20+.
 
 ```bash
 npm install
-npm run dev
-```
-
-Build de produção:
-
-```bash
 npm run build
 npm run start
 ```
@@ -108,38 +94,28 @@ npm run start
 No sandbox:
 
 ```bash
+pm2 delete readr 2>/dev/null || true
 pm2 start ecosystem.config.cjs
 pm2 logs readr --nostream
 ```
 
 ## Deploy na Vercel
 
-1. Extraia o pacote do projeto e envie os arquivos para um repositório GitHub, GitLab ou Bitbucket.
-2. Na Vercel, escolha **Add New → Project** e importe o repositório.
-3. O framework deve ser detectado como **Next.js**.
-4. Em **Settings → Environment Variables**, adicione `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` para Production, Preview e Development.
-5. Não exponha `SUPABASE_SERVICE_ROLE_KEY` no frontend. O app atual não precisa dela para funcionar.
-6. Use `npm run build` como Build Command e mantenha o Output Directory automático do Next.js.
-7. Faça o deploy.
-8. No Supabase, adicione a URL Vercel em **Authentication → URL Configuration → Site URL** e em **Redirect URLs**.
-9. Execute a versão atual de `supabase/schema.sql` antes de liberar o site.
+1. Envie o projeto para GitHub/GitLab/Bitbucket.
+2. Na Vercel, use **Add New → Project** e importe o repositório.
+3. Confirme o framework Next.js e Build Command `npm run build`.
+4. Cadastre as três variáveis Supabase em Production, Preview e Development. Marque a service role como segredo.
+5. Execute `supabase/schema.sql` antes de liberar o site.
+6. Faça o deploy e adicione a URL Vercel em Supabase → Authentication → URL Configuration.
 
-## Hospedagem Genspark
+Este projeto usa runtime Node.js server-side. O fluxo Hono/Cloudflare Pages de um clique da plataforma não é compatível; Vercel é a hospedagem nativa recomendada. Uma migração para Cloudflare exigiria OpenNext e build Linux específico.
 
-Este repositório usa Next.js com runtime de servidor. O Hosted Deploy padrão do Genspark é voltado ao stack Hono/Cloudflare Workers e não oferece publicação direta e confiável deste projeto Next.js sem uma migração específica para Cloudflare/OpenNext ou uma conversão para SPA/Hono. O build deve sempre ser feito em Linux. O código permanece pronto para Vercel; uma eventual migração de hospedagem não deve alterar o banco Supabase nem as regras RLS.
+## Status e limitações
 
-## Armazenamento e dados
-
-- Supabase Auth: contas e sessões.
-- Postgres: perfis, livros, capítulos e progresso.
-- Storage `covers`: capas públicas.
-- Storage `avatars`: avatares públicos.
-- Storage `uploads`: originais privados.
-- Zustand: preferências e estado imediato do leitor.
-
-## Limitações e próximos passos
-
-- PDFs formados somente por imagens precisam de OCR.
+- **Build:** aprovado com Next.js 14.2.35.
+- **Deploy de produção:** não executado; exige conta Vercel do proprietário.
+- **Cadastro real no sandbox:** bloqueado apenas pela ausência de `SUPABASE_SERVICE_ROLE_KEY`.
+- PDFs apenas com imagens exigem OCR.
 - EPUBs com DRM não são suportados.
-- Preferências do Zustand ainda são locais; a tabela de sincronização já existe.
-- A segurança usa Supabase Auth e RLS, mas ainda não inclui MFA, CAPTCHA ou políticas avançadas de senha.
+- A opção “OpenGL” aplica aceleração CSS/WebGL-friendly; navegadores não expõem troca literal do engine nativo de composição.
+- Tradução cobre a interface do Readr; títulos, descrições e conteúdo dos livros permanecem no idioma original do autor.

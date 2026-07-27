@@ -20,7 +20,7 @@ export function AuthShell({ mode, children }: { mode: 'login' | 'signup'; childr
           <div className="mb-8 grid size-11 place-items-center rounded-full bg-coral/10 text-coral"><Sparkles size={20} /></div>
           <p className="eyebrow">{signup ? 'Comece sua biblioteca' : 'Que bom ter você de volta'}</p>
           <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">{signup ? 'Crie sua conta no Readr' : 'Bem-vindo ao Readr'}</h1>
-          <p className="mt-4 text-sm leading-relaxed text-muted">{signup ? 'Cadastre seu nome, e-mail e escolha sua própria senha.' : 'Entre com os dados da sua conta para continuar sua leitura.'}</p>
+          <p className="mt-4 text-sm leading-relaxed text-muted">{signup ? 'Cadastre nome, apelido único, e-mail e senha. Sua conta entra automaticamente, sem confirmação por e-mail.' : 'Entre com seu e-mail ou apelido e sua senha para continuar sua leitura.'}</p>
           <div className="mt-9">{children}</div>
         </section>
       </section>

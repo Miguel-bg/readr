@@ -11,7 +11,7 @@ export function Header({ name, avatarUrl }: { name?: string; avatarUrl?: string 
   function search(event: FormEvent) {
     event.preventDefault()
     const value = query.trim()
-    router.push(value ? `/library?query=${encodeURIComponent(value)}` : '/library')
+    router.push(value ? `/library/community?query=${encodeURIComponent(value)}` : '/library/community')
   }
   return (
     <header className="flex h-[92px] items-center justify-between gap-4 px-5 sm:px-8 lg:h-[105px] lg:px-11">
