@@ -89,10 +89,13 @@ create table if not exists public.reading_progress (
   book_id uuid not null,
   book_source text check (book_source in ('imported','created')),
   current_page int default 0,
+  anchor_offset bigint not null default 0,
   percent numeric default 0,
   updated_at timestamptz default now(),
   unique (user_id, book_id, book_source)
 );
+
+alter table public.reading_progress add column if not exists anchor_offset bigint not null default 0;
 
 create table if not exists public.customization_settings (
   user_id uuid primary key references public.profiles(id) on delete cascade,
@@ -165,10 +168,13 @@ create table if not exists public.bookmarks (
   book_id uuid not null,
   book_source text not null check (book_source in ('imported','created')),
   page_number int not null,
+  anchor_offset bigint not null default 0,
   note text,
   created_at timestamptz default now(),
   unique (user_id, book_id, book_source, page_number)
 );
+
+alter table public.bookmarks add column if not exists anchor_offset bigint not null default 0;
 
 create or replace function public.generate_reader_id()
 returns char(8) language plpgsql as $$

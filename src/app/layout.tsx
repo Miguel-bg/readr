@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ProfileProvider } from '@/components/auth/ProfileProvider'
 import { LanguageProvider } from '@/components/ui/LanguageProvider'
+import { AppThemeProvider } from '@/components/ui/AppThemeProvider'
 
 export const metadata: Metadata = {
   title: { default: 'Readr — sua leitura, do seu jeito', template: '%s | Readr' },
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body><LanguageProvider><ProfileProvider>{children}</ProfileProvider></LanguageProvider></body>
+      <body><AppThemeProvider><LanguageProvider><ProfileProvider>{children}</ProfileProvider></LanguageProvider></AppThemeProvider></body>
     </html>
   )
 }

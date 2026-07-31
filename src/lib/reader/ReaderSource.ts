@@ -5,33 +5,57 @@ export interface ReaderSource {
   load(): Promise<ReaderPage[]>
 }
 
-function textToPages(text: string, chapterTitle: string, startPage: number, wordsPerPage = 115): ReaderPage[] {
-  const clean = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-  const words = clean.split(' ').filter(Boolean)
-  if (!words.length) return [{ chapterTitle, pageNumber: startPage, html: '<p>Este capítulo ainda está em branco.</p>' }]
-  const pages: ReaderPage[] = []
-  for (let index = 0; index < words.length; index += wordsPerPage) {
-    const chunk = words.slice(index, index + wordsPerPage).join(' ')
-    pages.push({
-      chapterTitle,
-      pageNumber: startPage + pages.length,
-      html: `<p>${chunk}</p>`,
-    })
-  }
-  return pages
+function decodeEntities(value: string) {
+  if (typeof document === 'undefined') return value
+  const node = document.createElement('textarea')
+  node.innerHTML = value
+  return node.value
+}
+
+export function plainText(html: string) {
+  return decodeEntities(html.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim()
+}
+
+function sourcePage(text: string, chapterTitle: string, pageNumber: number, anchor = 0): ReaderPage {
+  return { chapterTitle, pageNumber, html: '', text: plainText(text), anchor }
+}
+
+export function repaginateReaderContent(source: ReaderPage[], wordsPerPage: number): ReaderPage[] {
+  const safeSize = Math.max(55, Math.round(wordsPerPage))
+  const result: ReaderPage[] = []
+  let globalAnchor = 0
+
+  source.forEach((section) => {
+    const words = (section.text || plainText(section.html)).split(/\s+/).filter(Boolean)
+    if (!words.length) return
+    for (let index = 0; index < words.length; index += safeSize) {
+      const text = words.slice(index, index + safeSize).join(' ')
+      result.push({
+        chapterTitle: section.chapterTitle,
+        pageNumber: result.length + 1,
+        html: '',
+        text,
+        anchor: globalAnchor + index,
+      })
+    }
+    globalAnchor += words.length
+  })
+
+  return result.length ? result : [{ chapterTitle: '', pageNumber: 1, html: '', text: 'Este livro ainda está em branco.', anchor: 0 }]
 }
 
 export class CreatedBookSource implements ReaderSource {
   constructor(public book: Book, private chapters: Chapter[]) {}
 
   async load() {
-    const pages: ReaderPage[] = []
-    this.chapters
+    let anchor = 0
+    return [...this.chapters]
       .sort((a, b) => a.order_index - b.order_index)
-      .forEach((chapter) => {
-        pages.push(...textToPages(chapter.content, chapter.title, pages.length + 1))
+      .map((chapter, index) => {
+        const page = sourcePage(chapter.content, chapter.title || `Capítulo ${index + 1}`, index + 1, anchor)
+        anchor += page.text?.split(/\s+/).filter(Boolean).length || 0
+        return page
       })
-    return pages
   }
 }
 
@@ -39,10 +63,11 @@ export class ImportedBookSource implements ReaderSource {
   constructor(public book: Book) {}
 
   async load() {
-    return (this.book.content || []).map((html, index) => ({
-      chapterTitle: `Página ${index + 1}`,
-      pageNumber: index + 1,
-      html,
-    }))
+    let anchor = 0
+    return (this.book.content || []).map((html, index) => {
+      const page = sourcePage(html, `Página ${index + 1}`, index + 1, anchor)
+      anchor += page.text?.split(/\s+/).filter(Boolean).length || 0
+      return page
+    })
   }
 }

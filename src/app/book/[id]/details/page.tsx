@@ -6,12 +6,17 @@ import { Bookmark, Eye, Heart, LoaderCircle, Star, ThumbsDown, X } from 'lucide-
 import { BookCover } from '@/components/books/BookCover'
 import { getBookSocial, getCatalogBook, getCurrentProfile, saveBookToShelf, saveReview, setBookReaction } from '@/lib/data'
 import type { Book, UserProfile } from '@/lib/types'
+import { isGloballyPopular } from '@/lib/popularity'
+
+const safeRoute = (value: string | null, fallback = '/') => value?.startsWith('/') && !value.startsWith('//') ? value : fallback
 
 export default function BookDetailsPage() {
   const params = useParams<{ id: string }>()
   const search = useSearchParams()
   const router = useRouter()
   const source = search.get('source') === 'created' ? 'created' : 'imported'
+  const origin = safeRoute(search.get('from'))
+  const detailsRoute = `/book/${params.id}/details?source=${source}&from=${encodeURIComponent(origin)}`
   const [book, setBook] = useState<Book | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [reviews, setReviews] = useState<any[]>([])
@@ -31,7 +36,7 @@ export default function BookDetailsPage() {
   }, [params.id, source])
 
   function requireAccount(action?: () => void) {
-    if (!profile) { router.push(`/auth/signup?next=${encodeURIComponent(`/book/${params.id}/details?source=${source}`)}`); return }
+    if (!profile) { router.push(`/auth/signup?next=${encodeURIComponent(detailsRoute)}`); return }
     action?.()
   }
   async function save(status: 'want_to_read' | 'reading') {
@@ -57,7 +62,7 @@ export default function BookDetailsPage() {
 
   return (
     <main className="min-h-screen bg-[#eceae5] px-5 py-6 sm:px-10 sm:py-10">
-      <button onClick={() => router.back()} className="fixed right-5 top-5 z-20 grid size-11 place-items-center rounded-full bg-white shadow-soft" aria-label="Voltar"><X size={19} /></button>
+      <button onClick={() => router.replace(origin)} className="fixed right-5 top-5 z-20 grid size-11 place-items-center rounded-full bg-white shadow-soft" aria-label="Voltar"><X size={19} /></button>
       <section className="mx-auto max-w-5xl overflow-hidden rounded-[28px] bg-[#faf9f5] shadow-panel">
         <section className="grid gap-10 px-7 py-12 md:grid-cols-[260px_1fr] md:px-14 md:py-16">
           <div className="mx-auto w-full max-w-[260px]"><BookCover book={book} /></div>
@@ -65,9 +70,9 @@ export default function BookDetailsPage() {
             <p className="eyebrow">{book.source === 'created' ? 'Livro autoral' : `Arquivo ${book.format}`}</p>
             <h1 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">{book.title}</h1>
             <p className="mt-2 text-sm text-muted">{book.author || 'Autor não informado'}</p>
-            <div className="mt-5 flex flex-wrap items-center gap-5 text-xs"><span className="flex items-center gap-1"><Star className="text-amber-500" size={16} fill="currentColor" />{Number(book.average_rating || 0).toFixed(1)}</span><span className="flex items-center gap-1"><Eye size={16} />{book.reads_count || 0} leitores</span><span>{book.total_pages} páginas</span>{book.published_year && <span>{book.published_year}</span>}</div>
+            <div className="mt-5 flex flex-wrap items-center gap-5 text-xs"><span className="flex items-center gap-1"><Star className="text-amber-500" size={16} fill="currentColor" />{Number(book.average_rating || 0).toFixed(1)}</span><span className={`flex items-center gap-1 ${isGloballyPopular(book.reads_count) ? 'font-semibold text-coral' : ''}`}><Eye size={16} fill={Number(book.reads_count || 0) > 0 ? 'currentColor' : 'none'} />{Number(book.reads_count || 0) > 0 ? `${book.reads_count} leitores` : 'Sem leitores ainda'}</span><span>{book.total_pages} páginas</span>{book.published_year && <span>{book.published_year}</span>}</div>
             <p className="mt-7 max-w-2xl text-sm leading-7 text-ink/75">{book.description || 'Este livro ainda não possui descrição. Abra a leitura para conhecer seu conteúdo.'}</p>
-            <div className="mt-8 flex flex-wrap gap-3"><button onClick={() => requireAccount(async () => { await save('reading'); router.push(`/book/${book.id}?source=${book.source}`) })} className="primary-btn">Ler agora</button><button onClick={() => save('want_to_read')} className="secondary-btn"><Bookmark size={17} /> Salvar para mais tarde</button><button onClick={() => react('like')} className={`secondary-btn !px-4 ${reaction === 'like' ? '!border-coral !text-coral' : ''}`} aria-label="Curtir"><Heart size={18} fill={reaction === 'like' ? 'currentColor' : 'none'} /> {likes}</button><button onClick={() => react('dislike')} className={`secondary-btn !px-4 ${reaction === 'dislike' ? '!border-coral !text-coral' : ''}`} aria-label="Não gostei"><ThumbsDown size={18} /> {dislikes}</button></div>
+            <div className="mt-8 flex flex-wrap gap-3"><button onClick={() => requireAccount(async () => { await save('reading'); router.push(`/book/${book.id}?source=${book.source}&from=${encodeURIComponent(detailsRoute)}`) })} className="primary-btn">Ler agora</button><button onClick={() => save('want_to_read')} className="secondary-btn"><Bookmark size={17} /> Salvar para mais tarde</button><button onClick={() => react('like')} className={`secondary-btn !px-4 ${reaction === 'like' ? '!border-coral !text-coral' : ''}`} aria-label="Curtir"><Heart size={18} fill={reaction === 'like' ? 'currentColor' : 'none'} /> {likes}</button><button onClick={() => react('dislike')} className={`secondary-btn !px-4 ${reaction === 'dislike' ? '!border-coral !text-coral' : ''}`} aria-label="Não gostei"><ThumbsDown size={18} /> {dislikes}</button></div>
             {message && <p className="mt-4 text-xs text-coral">{message}</p>}
           </article>
         </section>

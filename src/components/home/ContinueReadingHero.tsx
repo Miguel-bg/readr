@@ -30,7 +30,7 @@ export function ContinueReadingHero({ reading }: { reading: ContinueReadingData 
         <span className="min-w-0 px-2 text-center"><span className="block truncate text-[7px] text-muted">{book.title}</span><strong className="block truncate">{chapterTitle}</strong></span>
         <span className="flex gap-3"><Type size={13} /><MoreHorizontal size={13} /><Bookmark size={13} /></span>
       </header>
-      <Link href={`/book/${book.id}?source=${book.source}`} prefetch className="hero-book relative flex flex-1 items-stretch px-4 sm:px-6" aria-label={`Continuar lendo ${book.title}`}>
+      <Link href={`/book/${book.id}?source=${book.source}&from=${encodeURIComponent('/')}`} prefetch className="hero-book relative flex flex-1 items-stretch px-4 sm:px-6" aria-label={`Continuar lendo ${book.title}`}>
         <span className="absolute -left-1 top-1/2 z-10 grid size-7 -translate-y-1/2 place-items-center rounded-full bg-white/75"><ChevronLeft size={18} /></span>
         <section className="relative flex-1 overflow-hidden rounded-l-md bg-[#eee7d8] px-[8%] py-5 font-serif text-[10px] leading-[1.5] text-[#302d27] shadow-[inset_-14px_0_24px_rgba(78,61,38,.09)] sm:text-[12px]"><p className="line-clamp-[8] text-justify">{first}</p></section>
         <section className="relative flex-1 overflow-hidden rounded-r-md bg-[#eee7d8] px-[8%] py-5 font-serif text-[10px] leading-[1.5] text-[#302d27] shadow-[inset_14px_0_24px_rgba(78,61,38,.09)] sm:text-[12px]"><p className="line-clamp-[8] text-justify">{second}</p></section>

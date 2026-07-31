@@ -63,18 +63,18 @@ export function Dashboard() {
 
         <section className="grid gap-4 xl:grid-cols-2">
           <LibraryPanel title="Minha Biblioteca" suffix="(Importados)" href="/library">
-            {loading ? <BookSkeletons /> : imported.slice(0, 4).map((book) => <BookCard key={book.id} book={book} />)}
+            {loading ? <BookSkeletons /> : imported.slice(0, 4).map((book) => <BookCard key={book.id} book={book} from="/" />)}
             {!loading && !imported.length && <EmptyShelf href="/import" label="Importe seu primeiro livro" />}
           </LibraryPanel>
           <LibraryPanel title="Meus Livros Criados" href="/library/created">
             {!loading && profile && <CreateBookCard />}
-            {loading ? <BookSkeletons count={3} /> : created.slice(0, 3).map((book) => <BookCard key={book.id} book={book} />)}
+            {loading ? <BookSkeletons count={3} /> : created.slice(0, 3).map((book) => <BookCard key={book.id} book={book} from="/" />)}
             {!loading && profile && !created.length && <div className="col-span-3 flex items-center justify-center px-5 text-center text-[10px] leading-relaxed text-muted">Seus livros aparecerão aqui após serem criados.</div>}
           </LibraryPanel>
         </section>
         <section className="panel mt-6 p-5 sm:p-7">
           <header className="mb-6 flex items-end justify-between"><div><p className="eyebrow">Mais lidos</p><h2 className="mt-2 font-serif text-3xl">Biblioteca</h2></div><Link href="/library/community" className="text-xs font-semibold hover:underline">Ver mais</Link></header>
-          {loading ? <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 12 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded bg-black/5" />)}</section> : catalog.length ? <section className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">{catalog.slice(0, 12).map((book, index) => <BookCard key={`${book.source}-${book.id}`} book={book} highlighted={index < 3 && Number(book.reads_count || 0) > 0} />)}</section> : <p className="rounded-xl border border-dashed border-line py-12 text-center text-xs text-muted">A biblioteca pública ainda não possui livros.</p>}
+          {loading ? <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">{Array.from({ length: 12 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded bg-black/5" />)}</section> : catalog.length ? <section className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">{catalog.slice(0, 12).map((book) => <BookCard key={`${book.source}-${book.id}`} book={book} from="/" />)}</section> : <p className="rounded-xl border border-dashed border-line py-12 text-center text-xs text-muted">A biblioteca pública ainda não possui livros.</p>}
         </section>
         <CustomizationPanel />
       </section>

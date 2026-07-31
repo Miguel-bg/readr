@@ -149,13 +149,13 @@ export function LibraryView({ mode }: { mode: LibraryMode }) {
             {!isCatalog && mode === 'imported' && <nav className="mb-6 flex flex-wrap gap-2"><ShelfTab label="Todos" value="all" active={status} set={setStatus} /><ShelfTab label="Quero ler" value="wishlist" active={status} set={setStatus} /><ShelfTab label="Lendo" value="reading" active={status} set={setStatus} /><ShelfTab label="Concluídos" value="completed" active={status} set={setStatus} /></nav>}
             <section className="grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 sm:gap-x-6 md:grid-cols-4 xl:grid-cols-5">
               {mode === 'created' && !loading && <CreateBookCard />}
-              {loading ? Array.from({ length: 10 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded bg-black/5" />) : visibleBooks.map((book, index) => <BookCard key={`${book.source}-${book.id}`} book={book} canEdit={Boolean(profile && book.user_id === profile.id)} highlighted={sort === 'popular' && index < 3 && Number(book.reads_count || 0) > 0} />)}
+              {loading ? Array.from({ length: 10 }, (_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded bg-black/5" />) : visibleBooks.map((book) => <BookCard key={`${book.source}-${book.id}`} book={book} canEdit={Boolean(profile && book.user_id === profile.id)} from={mode === 'community' ? '/library/community' : mode === 'created' ? '/library/created' : '/library'} />)}
             </section>
             {!loading && !error && !visibleBooks.length && <EmptyState icon={isCatalog ? Compass : Library} title={query ? 'Nenhum livro encontrado' : 'Nenhum livro nesta seção'} description={query ? `Não encontramos resultados para “${query}”.` : 'Os livros aparecerão aqui conforme sua atividade.'} href={isCatalog ? '/auth/signup' : '/import'} action={isCatalog ? 'Criar conta' : 'Importar livro'} />}
           </div>
         </section>}
 
-        {profile && mode === 'imported' && <section className="mt-12 border-t border-line pt-8"><div className="mb-5 flex items-end justify-between"><div><p className="eyebrow">Autoria</p><h2 className="mt-2 font-serif text-3xl">Meus livros criados</h2></div><Link href="/library/created" className="text-xs font-semibold">Ver todos</Link></div><section className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"><CreateBookCard />{createdBooks.slice(0, 4).map((book) => <BookCard key={book.id} book={book} canEdit />)}</section></section>}
+        {profile && mode === 'imported' && <section className="mt-12 border-t border-line pt-8"><div className="mb-5 flex items-end justify-between"><div><p className="eyebrow">Autoria</p><h2 className="mt-2 font-serif text-3xl">Meus livros criados</h2></div><Link href="/library/created" className="text-xs font-semibold">Ver todos</Link></div><section className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"><CreateBookCard />{createdBooks.slice(0, 4).map((book) => <BookCard key={book.id} book={book} canEdit from="/library" />)}</section></section>}
       </section>
     </AppShell>
   )

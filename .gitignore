@@ -33,3 +33,4 @@ pnpm-debug.log*
 *.pem
 *.tar.gz
 *.zip
+*.tsbuildinfo

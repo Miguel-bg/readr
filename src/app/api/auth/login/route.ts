@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     let email = login
     if (!login.includes('@')) {
       const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
-      const { data } = await admin.from('account_aliases').select('email').eq('nickname', login).maybeSingle()
+      const { data } = await admin.from('account_aliases').select('email').ilike('nickname', login).maybeSingle()
       if (!data?.email) return NextResponse.json({ error: 'Apelido ou senha inválidos.' }, { status: 401 })
       email = data.email
     }

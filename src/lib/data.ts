@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { parseBookFile } from '@/lib/reader/parseBook'
-import { CreatedBookSource } from '@/lib/reader/ReaderSource'
+import { CreatedBookSource, ImportedBookSource, repaginateReaderContent } from '@/lib/reader/ReaderSource'
 import type { Book, BookReview, BookSource, CreateBookPayload, CreatedBook, ReadingProgress, ShelfStatus, UserProfile } from '@/lib/types'
 
 export interface ImportOptions {
@@ -203,17 +203,18 @@ export async function getContinueReading(userId: string): Promise<ContinueReadin
   if (error) throw error
   if (!data) return null
   const progress = data as ReadingProgress
-  if (progress.book_source === 'imported') {
-    const book = await getImportedBook(progress.book_id)
-    if (!book) return null
-    const index = Math.min(progress.current_page, Math.max(0, (book.content?.length || 1) - 1))
-    return { book, progress, pageHtml: book.content?.[index] || '', chapterTitle: `Página ${index + 1}` }
-  }
-  const book = await getCreatedBook(progress.book_id)
+  const book = progress.book_source === 'imported' ? await getImportedBook(progress.book_id) : await getCreatedBook(progress.book_id)
   if (!book) return null
-  const pages = await new CreatedBookSource(book, book.chapters || []).load()
-  const index = Math.min(progress.current_page, Math.max(0, pages.length - 1))
-  return { book: { ...book, total_pages: pages.length }, progress, pageHtml: pages[index]?.html || '', chapterTitle: pages[index]?.chapterTitle || '' }
+  const source = progress.book_source === 'imported'
+    ? await new ImportedBookSource(book).load()
+    : await new CreatedBookSource(book, (book as CreatedBook).chapters || []).load()
+  const pages = repaginateReaderContent(source, 165)
+  const anchor = Number(progress.anchor_offset || 0)
+  const index = anchor
+    ? Math.max(0, pages.findLastIndex((page) => Number(page.anchor || 0) <= anchor))
+    : Math.min(progress.current_page, Math.max(0, pages.length - 1))
+  const page = pages[index]
+  return { book: { ...book, total_pages: pages.length }, progress: { ...progress, current_page: index }, pageHtml: page?.text || '', chapterTitle: page?.chapterTitle || '' }
 }
 export async function registerBookRead(bookId: string, source: BookSource) {
   const { error } = await createClient().rpc('register_book_read', { target_book_id: bookId, target_source: source })
@@ -324,7 +325,7 @@ export async function getBookmarks(userId: string, bookId: string, source: BookS
   return data || []
 }
 
-export async function toggleBookmark(userId: string, bookId: string, source: BookSource, pageNumber: number, note = '') {
+export async function toggleBookmark(userId: string, bookId: string, source: BookSource, pageNumber: number, note = '', anchorOffset = 0) {
   const supabase = createClient()
   const { data, error } = await supabase.from('bookmarks').select('id').eq('user_id', userId).eq('book_id', bookId).eq('book_source', source).eq('page_number', pageNumber).maybeSingle()
   if (error) throw error
@@ -333,7 +334,7 @@ export async function toggleBookmark(userId: string, bookId: string, source: Boo
     if (deleteError) throw deleteError
     return false
   }
-  const { error: insertError } = await supabase.from('bookmarks').insert({ user_id: userId, book_id: bookId, book_source: source, page_number: pageNumber, note })
+  const { error: insertError } = await supabase.from('bookmarks').insert({ user_id: userId, book_id: bookId, book_source: source, page_number: pageNumber, anchor_offset: anchorOffset, note })
   if (insertError) throw insertError
   return true
 }
