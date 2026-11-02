@@ -114,6 +114,7 @@ export interface ReaderChapter {
   title: string
   href?: string
   blocks: ReaderBlock[]
+  subchapters?: ReaderChapter[]
 }
 
 export interface ReaderPage {

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { ReaderFontId, ReaderTheme } from '@/lib/types'
 
 export type ReaderAnimation = 'real-page' | 'slide' | 'fade'
-export type ReaderViewMode = 'pages' | 'scroll'
+export type ReaderViewMode = 'realistic' | 'slide' | 'scroll'
 
 interface ReaderState {
   currentPage: number
@@ -47,7 +47,7 @@ export const useReaderStore = create<ReaderState>()(persist((set) => ({
   lineSpacing: 1.68,
   brightness: 100,
   pageGap: 18,
-  viewMode: 'pages',
+  viewMode: 'realistic',
   renderQuality: 'smooth',
   animation: 'real-page',
   showThumbnails: false,

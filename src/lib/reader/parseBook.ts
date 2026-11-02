@@ -18,6 +18,58 @@ export interface ParsedBook {
   coverExtension?: string
 }
 
+/**
+ * Higieniza o título e o autor extraindo padronizações como:
+ * - "Nome do Livro - Nome do Autor"
+ * - "Nome do Autor - Nome do Livro"
+ * - "Nome do Livro (Nome do Autor)"
+ */
+function sanitizeMetadata(rawTitle: string, rawAuthor: string, fallbackFileName: string) {
+  let title = (rawTitle || '').trim()
+  let author = (rawAuthor || '').trim()
+
+  if (!title || title.toLowerCase() === 'untitled' || title.toLowerCase() === 'sem título') {
+    title = fallbackFileName
+  }
+
+  // Remove extensões de arquivo residuais no título
+  title = title.replace(/\.(epub|pdf|docx)$/i, '').trim()
+
+  if (!author || author.toLowerCase() === 'unknown' || author.toLowerCase() === 'desconhecido') {
+    // Padrão "Título - Autor" ou "Autor - Título"
+    const dashMatch = title.match(/^(.+?)\s*[\-—–|]\s*(.+)$/)
+    if (dashMatch) {
+      const part1 = dashMatch[1].trim()
+      const part2 = dashMatch[2].trim()
+
+      // Se a segunda parte não tiver números e tiver tamanho razoável de nome
+      if (part2.length >= 2 && part2.length <= 50 && !/\d/.test(part2)) {
+        title = part1
+        author = part2
+      } else if (part1.length >= 2 && part1.length <= 50 && !/\d/.test(part1)) {
+        title = part2
+        author = part1
+      }
+    } else {
+      // Padrão "Título (Autor)"
+      const parenMatch = title.match(/^(.+?)\s*\(([^)]+)\)$/)
+      if (parenMatch) {
+        const part1 = parenMatch[1].trim()
+        const part2 = parenMatch[2].trim()
+        if (part2.length >= 2 && part2.length <= 50 && !/\d/.test(part2)) {
+          title = part1
+          author = part2
+        }
+      }
+    }
+  }
+
+  return {
+    title: title || fallbackFileName,
+    author: author || 'Autor Desconhecido',
+  }
+}
+
 function extensionOf(file: File): Exclude<BookFormat, 'readr'> {
   const extension = file.name.split('.').pop()?.toLowerCase()
   if (extension !== 'epub' && extension !== 'pdf' && extension !== 'docx') {
@@ -274,6 +326,7 @@ async function parseEpub(file: File) {
   const basePath = dirname(packagePath)
   const manifest = new Map<string, { href: string; mediaType: string; properties: string }>()
   let coverHref = ''
+  let navItem: { href: string; mediaType: string; properties: string } | null = null
 
   packageXml.querySelectorAll('manifest item').forEach((item) => {
     const id = item.getAttribute('id')
@@ -288,28 +341,71 @@ async function parseEpub(file: File) {
     coverHref = manifest.get(coverId)?.href || ''
   }
 
-  const navigation = new Map<string, string>()
-  const navItem = Array.from(manifest.values()).find((item) => item.properties.includes('nav'))
+  // Encontrar o item de navegação (nav.xhtml)
+  navItem = Array.from(manifest.values()).find((item) => item.properties.includes('nav')) || null
+
+  // Fallback 1: Buscar itens no manifesto com ID ou HREF contendo "cover"
+  if (!coverHref) {
+    for (const [id, record] of Array.from(manifest.entries())) {
+      if ((/cover/i.test(id) || /cover/i.test(record.href)) && record.mediaType.startsWith('image/')) {
+        coverHref = record.href
+        break
+      }
+    }
+  }
+
+  // Fallback 2: Buscar diretamente no ZIP qualquer arquivo de imagem chamado "cover.*" ou "capa.*"
+  if (!coverHref) {
+    const allFiles = Object.keys(zip.files)
+    const coverFile = allFiles.find((path) => /(?:^|\/)(?:cover|capa)\.(?:jpg|jpeg|png|webp|gif)$/i.test(path))
+    if (coverFile) {
+      coverHref = coverFile
+    }
+  }
+
+  const navigation: Map<string, ReaderChapter> = new Map()
+
+  const walkNav = (element: Element, parentChapter: ReaderChapter | null = null): void => {
+    element.querySelectorAll(':scope > li').forEach((li) => {
+      const a = li.querySelector(':scope > a')
+      const ol = li.querySelector(':scope > ol')
+      
+      if (a) {
+        const href = resolvePath(navItem!.href, a.getAttribute('href') || '')
+        const title = normalizeReaderText(a.textContent || '')
+        const subchapters: ReaderChapter[] = []
+        if (ol) walkNav(ol, { id: href, title, blocks: [], href, subchapters })
+        
+        const chapter = { id: href, title, blocks: [], href, subchapters }
+        if (parentChapter) {
+          parentChapter.subchapters?.push(chapter)
+        } else {
+          navigation.set(href, chapter)
+        }
+      }
+    })
+  }
+
   if (navItem) {
     const navText = await zip.file(navItem.href)?.async('text')
     if (navText) {
       const navDocument = new DOMParser().parseFromString(navText, 'text/html')
-      navDocument.querySelectorAll('nav a[href]').forEach((link) => {
-        const href = resolvePath(navItem.href, link.getAttribute('href') || '')
-        const label = normalizeReaderText(link.textContent || '')
-        if (href && label) navigation.set(href, label)
-      })
+      const nav = navDocument.querySelector('nav[epub|type="toc"] > ol')
+      if (nav) walkNav(nav)
     }
   }
   const ncxItem = Array.from(manifest.values()).find((item) => item.mediaType === 'application/x-dtbncx+xml')
-  if (ncxItem) {
+  if (ncxItem && navigation.size === 0) {
     const ncxText = await zip.file(ncxItem.href)?.async('text')
     if (ncxText) {
       const ncx = new DOMParser().parseFromString(ncxText, 'application/xml')
       ncx.querySelectorAll('navPoint').forEach((point) => {
         const src = point.querySelector('content')?.getAttribute('src') || ''
         const label = normalizeReaderText(point.querySelector('navLabel text')?.textContent || '')
-        if (src && label) navigation.set(resolvePath(ncxItem.href, src), label)
+        if (src && label) {
+          const resolved = resolvePath(ncxItem.href, src)
+          navigation.set(resolved, { id: resolved, title: label, blocks: [], href: resolved, subchapters: [] })
+        }
       })
     }
   }
@@ -346,8 +442,16 @@ async function parseEpub(file: File) {
     const chapterDocument = new DOMParser().parseFromString(chapterHtml, 'text/html')
     const blocks = await htmlDocumentToBlocks(chapterDocument, (src) => resolveImage(record.href, src))
     if (!blocks.length) continue
-    const navTitle = navigation.get(record.href) || Array.from(navigation.entries()).find(([href]) => href.split('#')[0] === record.href)?.[1]
-    chapters.push({ id: item.getAttribute('idref') || `epub-${index + 1}`, href: record.href, title: navTitle || chapterTitle(blocks, `Capítulo ${chapters.length + 1}`), blocks })
+    const navEntry = navigation.get(record.href)
+    const navTitle = navEntry ? navEntry.title : ''
+    const navSubchapters = navEntry?.subchapters || []
+    chapters.push({
+      id: item.getAttribute('idref') || `epub-${index + 1}`,
+      href: record.href,
+      title: navTitle || chapterTitle(blocks, `Capítulo ${chapters.length + 1}`),
+      blocks,
+      subchapters: navSubchapters
+    })
   }
 
   return {
@@ -362,17 +466,29 @@ async function parseEpub(file: File) {
 export async function parseBookFile(file: File): Promise<ParsedBook> {
   const format = extensionOf(file)
   const fallbackTitle = file.name.replace(/\.[^.]+$/, '').trim()
+
   if (format === 'docx') {
     const pages = await parseDocx(file)
     if (!pages.length) throw new Error('O DOCX não contém conteúdo legível.')
-    return { title: fallbackTitle, author: '', pages, format }
+    const { title, author } = sanitizeMetadata(fallbackTitle, '', fallbackTitle)
+    return { title, author, pages, format }
   }
+
   if (format === 'pdf') {
     const pdf = await parsePdf(file)
     if (!pdf.pages.length) throw new Error('O PDF não contém conteúdo legível.')
-    return { title: pdf.title || fallbackTitle, author: pdf.author, pages: pdf.pages, format, coverBlob: pdf.coverBlob, coverExtension: 'jpg' }
+    const { title, author } = sanitizeMetadata(pdf.title || fallbackTitle, pdf.author, fallbackTitle)
+    return { title, author, pages: pdf.pages, format, coverBlob: pdf.coverBlob, coverExtension: 'jpg' }
   }
+
   const epub = await parseEpub(file)
   if (!epub.pages.length) throw new Error('O EPUB não contém capítulos legíveis.')
-  return { ...epub, title: epub.title || fallbackTitle, format }
+  const { title, author } = sanitizeMetadata(epub.title || fallbackTitle, epub.author, fallbackTitle)
+
+  return {
+    ...epub,
+    title,
+    author,
+    format,
+  }
 }

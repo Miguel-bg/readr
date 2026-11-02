@@ -1,159 +1,95 @@
-# Readr
+<div align="center">
 
-Um aplicativo social de leitura completo rodando 100% no **Cloudflare Workers** com D1 como único banco de dados.
+# MIGUEL BRAGA
+### Engenharia de Software • IA Product Engineering • Automação
 
----
+**Building intelligent systems that ship to production.**
 
-## ✨ Features
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/miguel-braga-developer)
+[![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:bragamiguel018@gmail.com)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/5521971854902)
 
-- **Page-flip reader** – Leitor com efeito de virar página inspirado em livros físicos
-- **Importação inteligente** – EPUB, PDF e DOCX com extração automática de metadados
-- **Criar livros autorais** – Escreva e publique com capítulos personalizados
-- **Destaque e bookmarks** – Salve marcas de página e destaque com notas
-- **Social reading** – Siga outros leitores, veja rankings e atividades
-- **Upload de arquivos** – Armazena arquivos em chunks no D1 (até 25 MB)
+</div>
 
 ---
 
-## 🛠️ Tech Stack
+## ⚡ THE SHORT VERSION
 
-| Tecnologia | Uso |
-|------------|-----|
-| **Next.js 15** | App Router, React 18, TypeScript strict |
-| **Cloudflare Workers** | Runtime edge com @opennextjs/cloudflare |
-| **D1 (SQLite)** | Banco de dados relacional + armazenamento |
-| **Tailwind CSS** | Estilização responsiva |
-| **next-intl** | Internacionalização (PT/EN/ES) |
-| **Zustand** | Gerenciamento de estado |
-| **react-pageflip** | Componente page-flip |
-| **pdfjs-dist** | Renderização de PDF |
-| **mammoth** | Conversão DOCX para HTML |
-| **jszip** | Extração de conteúdo EPUB |
-| **JWT HS256** | Autenticação em httpOnly cookie |
+I'm a **Software Engineering student and developer** with a strong focus on **AI product engineering and intelligent automation**.
+
+Today my strongest focus is designing systems where LLMs, AI agents, APIs and full-stack software work together as a reliable, production-ready product. 
+
+> **I don't just add AI to software. I architect the system around it.**
 
 ---
 
-## 📁 Project Structure
+## 🧠 AI ENGINEERING — WHERE I WORK
 
-```
-/
-├── d1/                          # Schema do banco D1
-│   └── schema.sql
-├── scripts/                     # Scripts utilitários
-│   ├── check-reader-translations.mjs
-│   └── gen-test-epub.mjs
-├── src/
-│   ├── app/                     # App Router (páginas e APIs)
-│   │   ├── api/
-│   │   │   ├── auth/            # Endpoints de autenticação
-│   │   │   ├── files/           # Upload e download de arquivos
-│   │   │   └── rpc/             # Dispatcher de operações
-│   │   ├── auth/                # Páginas login/signup
-│   │   ├── book/                # Leitor e gerenciamento
-│   │   ├── community/           # Perfil público
-│   │   ├── create/              # Criação de livros
-│   │   ├── import/              # Importação de arquivos
-│   │   ├── library/             # Estante e catálogo
-│   │   ├── profile/             # Gerenciamento de perfil
-│   │   └── settings/            # Configurações
-│   ├── components/              # Componentes React
-│   ├── lib/                     # Lógica de negócio
-│   ├── messages/                # Traduções (pt, en, es)
-│   └── store/                   # Zustand store
-├── public/                      # Assets
-├── wrangler.jsonc               # Configuração do Worker
-└── package.json                 # Scripts e dependências
+<div align="center">
+
+![Tech Stack](https://skillicons.dev/icons?i=python,js,ts,react,nextjs,tailwind,postgresql,supabase,cloudflare,docker,linux,git)
+
+</div>
+
+### 🔬 AI / GenAI
+`LLMs` `Generative AI` `AI Agents` `Tool Calling` `RAG` `Vector Search` `Embeddings` `Automation` `Prompt Engineering` `Evaluation`
+
+### 🏗️ Product & Architecture
+`Full-Stack Development` `SaaS` `REST APIs` `WebSockets` `Automation Workflows` `Cloud Architecture` `Production Systems`
+
+---
+
+## 🧩 HOW I TURN AN IDEA INTO A PRODUCTION SYSTEM
+
+```text
+┌──────────────┐     ┌─────────────────┐     ┌────────────────┐
+│    IDEA      │ ──▶ │   ARCHITECTURE  │ ──▶ │  AI / LLM     │
+└──────────────┘     └─────────────────┘     └────────────────┘
+                                                     │
+                                                     ▼
+┌──────────────┐     ┌─────────────────┐     ┌────────────────┐
+│   SCALE      │ ◀── │  CLOUD / CI-CD  │ ◀── │ BACKEND + API  │
+└──────────────┘     └─────────────────┘     └────────────────┘
+        ▲                                             │
+        │                                             ▼
+        └─────────── FRONTEND / MOBILE ◀─────────────┘
+
+             + AUTOMATION + OBSERVABILITY + SECURITY
 ```
 
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+ e npm
-
-### Installation
-
-```bash
-# Instalar dependências
-npm install
-
-# Inicializar banco D1 local (miniflare)
-npx wrangler d1 execute readr --local --file=d1/schema.sql
-
-# Iniciar em desenvolvimento
-npm run dev        # http://localhost:3000
-```
-
-O servidor local usa o D1 em memória. Crie `.dev.vars` com:
-
-```env
-JWT_SECRET=sua_chave_aleatoria_aqui
-```
+I take ownership across the lifecycle: **product strategy → architecture → implementation → AI integration → infrastructure → deployment → scale.**
 
 ---
 
-## 🏗️ Deployment
+## 🔥 SELECTED ENGINEERING EXPERIENCE
 
-```bash
-# Build
-npm run build
-
-# Deploy
-npm run deploy
-
-# Configurar segredo JWT no Cloudflare (uma vez)
-npx wrangler secret put JWT_SECRET
-```
-
-### Demo
-
-**https://readr.miguxl.workers.dev**
+- **AI & Agentic Systems** — LLM applications, agent workflows, tool execution, and production-ready AI automation.
+- **Full-Stack Architecture** — Designing scalable platforms, RESTful APIs, and efficient business logic.
+- **Automation Engineering** — Optimizing manual processes into reliable, automated digital workflows.
+- **Cloud & Infrastructure** — Deployment, monitoring, and performance optimization on modern platforms like Cloudflare.
+- **Technical Architecture** — System design, scalability, and integration of emerging technologies.
 
 ---
 
-## 🔒 Security Architecture
+## 📌 SELECTED PROJECTS
 
-- **Autenticação**: JWT HS256 em httpOnly cookie
-- **Derivação de senha**: PBKDF2 com 310k iterações no navegador
-- **Armazenamento seguro**: `sha256(salt ‖ k)` - senha nunca armazenada em texto
-- **Autorização**: Regras server-side baseadas em `user_id` da sessão
-- **Arquivos privados**: 404 sem sessão válida
+### [Readr](https://github.com/Miguel-bg/readr) 📚
+*Social reading app with page-flip reader, import capabilities and D1 backend.*
+- **Tech**: Next.js, React, Cloudflare Workers/D1, JWT/PBKDF2.
 
 ---
 
-## 📖 Project Details
+## 🧠 WHAT I BRING
+**TECHNICAL DEPTH** × **PRODUCT THINKING** × **BUSINESS LOGIC** × **EXECUTION**
 
-### Arquitetura de Dados
-
-- **D1 (SQLite)**: Tabelas para perfis, livros, progresso, destaques, etc.
-- **Arquivos em chunks**: 200 KB para texto, 512 KB para binários
-- **Limite de backup**: 25 MB por arquivo de livro
-
-### API
-
-Operações através de `POST /api/rpc`:
-
-```json
-{ "op": "library_mine", "args": {} }
-```
-
-### Limitações Conhecidas
-
-- 1 MB por linha no D1
-- Backup de arquivo até 25 MB
-- Nenhuma migração de dados da era Supabase (contas devem recriar)
-- EPUB com DRM não suportado
+> The interesting problems are rarely just *"write some code."* They are about deciding what should exist, designing the right architecture, integrating AI where it creates leverage, and shipping something that survives production.
 
 ---
 
-## 📄 License
+<div align="center">
 
-MIT License – Livre para uso e modificação.
+### 📊 GITHUB STATS
 
----
+![GitHub Stats](https://github-readme-stats.vercel.app/api?username=Miguel-bg&show_icons=true&theme=radical&hide_border=true)
 
-## 👤 Author
-
-Desenvolvido por **Miguel Braga** como projeto de portfólio.
+</div>
