@@ -34,3 +34,14 @@ pnpm-debug.log*
 *.tar.gz
 *.zip
 *.tsbuildinfo
+
+# cloudflare workers / opennext
+/.open-next
+/.wrangler
+.dev.vars
+scripts/.env.cloudflare
+*.tmp
+
+# testes de navegador (artefatos do playwright-cli)
+/.playwright-cli
+
