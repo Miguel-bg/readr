@@ -79,10 +79,20 @@ export function RealisticFlip({ chapters, currentPage, onPageChange, bookId, sou
   const stageRef = useRef<HTMLElement>(null)
   const { fontSize, fontFamily, margin, lineSpacing, theme, animation, renderQuality, showChapters, showThumbnails } = useReaderStore()
 
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight })
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const wordsPerPage = useMemo(() => {
-    const areaFactor = (window.innerWidth * window.innerHeight) / (360 * 540)
+    if (windowSize.width === 0) return 170 // Valor padrão
+    const areaFactor = (windowSize.width * windowSize.height) / (360 * 540)
     return Math.max(60, Math.round(170 * areaFactor * (18 / fontSize) * (38 / margin) * (1.68 / lineSpacing)))
-  }, [fontSize, margin, lineSpacing])
+  }, [windowSize, fontSize, margin, lineSpacing])
 
   const pages = useMemo(() => repaginateReaderContent(chapters, wordsPerPage), [chapters, wordsPerPage])
   const scrollWindowStart = Math.max(0, currentPage - 4)
@@ -105,13 +115,13 @@ export function RealisticFlip({ chapters, currentPage, onPageChange, bookId, sou
       <div className="pageflip-frame" style={{ width: '100%', height: '100%' }}>
         <HTMLFlipBook
           ref={flipRef}
-          width={window.innerWidth}
-          height={window.innerHeight}
+          width={windowSize.width || 400}
+          height={windowSize.height || 600}
           size="fixed"
-          minWidth={window.innerWidth}
-          maxWidth={window.innerWidth}
-          minHeight={window.innerHeight}
-          maxHeight={window.innerHeight}
+          minWidth={windowSize.width || 400}
+          maxWidth={windowSize.width || 400}
+          minHeight={windowSize.height || 600}
+          maxHeight={windowSize.height || 600}
           drawShadow
           maxShadowOpacity={renderQuality === 'smooth' ? 0.68 : 0.34}
           showCover={Boolean(coverPage)}
@@ -119,7 +129,7 @@ export function RealisticFlip({ chapters, currentPage, onPageChange, bookId, sou
           swipeDistance={24}
           flippingTime={renderQuality === 'smooth' ? 720 : 380}
           startPage={Math.min(currentPage - scrollWindowStart, flipPages.length - 1)}
-          usePortrait={window.innerWidth < window.innerHeight}
+          usePortrait={windowSize.width < windowSize.height}
           autoSize={false}
           onFlip={(event: { data: number }) => {
             const logical = scrollWindowStart + event.data
