@@ -5,13 +5,13 @@ import { ProfileProvider } from '@/components/auth/ProfileProvider'
 import { LanguageProvider } from '@/components/ui/LanguageProvider'
 import { AppThemeProvider } from '@/components/ui/AppThemeProvider'
 
-const sourceSerif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--reader-font-source-serif' })
-const lora = Lora({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--reader-font-lora' })
-const bitter = Bitter({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--reader-font-bitter' })
+const sourceSerif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-source-serif' })
+const lora = Lora({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-lora' })
+const bitter = Bitter({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-bitter' })
 const merriweather = Merriweather({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-merriweather' })
 const atkinson = Atkinson_Hyperlegible({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-atkinson' })
-const inter = Inter({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--reader-font-inter' })
-const publicSans = Public_Sans({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--reader-font-public-sans' })
+const inter = Inter({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-inter' })
+const publicSans = Public_Sans({ subsets: ['latin'], weight: ['400', '700'], variable: '--reader-font-public-sans' })
 const readerFontVariables = [sourceSerif, lora, bitter, merriweather, atkinson, inter, publicSans].map((font) => font.variable).join(' ')
 
 export const metadata: Metadata = {
