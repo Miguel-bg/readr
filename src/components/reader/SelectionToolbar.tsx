@@ -12,6 +12,7 @@ export interface ReaderSelection {
   y: number
 }
 
+/* Barra flutuante de seleção — um só estilo (rv-) para os dois leitores. */
 export function SelectionToolbar({
   selection,
   copied,
@@ -35,27 +36,33 @@ export function SelectionToolbar({
 }) {
   const t = useTranslations('reader')
   return <aside
-    className="reader-selection-toolbar"
+    className="rv-selection-toolbar"
     style={{ left: selection.x, top: selection.y }}
     role="toolbar"
     aria-label={t('selectionActions')}
     onMouseDown={(event) => event.preventDefault()}
   >
-    <div className="reader-selection-actions">
-      <Action label={copied ? t('copied') : t('copy')} onClick={onCopy} icon={copied ? Check : Copy} />
-      <div className="reader-highlight-control" aria-label={t('highlight')}>
-        <Highlighter size={15} />
-        {(['yellow', 'green', 'blue', 'pink'] as HighlightColor[]).map((color) => <button key={color} className={`reader-highlight-dot is-${color}`} onClick={() => onHighlight(color)} aria-label={`${t('highlight')} ${color}`} />)}
-      </div>
-      <Action label={t('note')} onClick={onNote} icon={MessageSquareText} />
-      <Action label={t('dictionary')} onClick={onDictionary} icon={BookOpen} />
-      <Action label={t('share')} onClick={onShare} icon={Share2} />
-      <Action label={t('closeSelection')} onClick={onClose} icon={X} />
+    <button className="rv-selection-toolbar__action" onClick={onCopy} aria-label={copied ? t('copied') : t('copy')} title={t('copy')}>
+      {copied ? <Check size={15} /> : <Copy size={15} />}
+      <span>{copied ? t('copied') : t('copy')}</span>
+    </button>
+    <span className="rv-selection-toolbar__divider" aria-hidden="true" />
+    <div className="rv-selection-toolbar__colors" aria-label={t('highlight')}>
+      <Highlighter size={15} className="rv-selection-toolbar__marker" />
+      {(['yellow', 'green', 'blue', 'pink'] as HighlightColor[]).map((color) => (
+        <button
+          key={color}
+          className={`rv-selection-toolbar__color is-${color}`}
+          onClick={() => onHighlight(color)}
+          aria-label={`${t('highlight')} ${color}`}
+        />
+      ))}
     </div>
-    {dictionary && <p className="reader-dictionary-result" aria-live="polite">{dictionary}</p>}
+    <span className="rv-selection-toolbar__divider" aria-hidden="true" />
+    <button className="rv-selection-toolbar__action" onClick={onNote} aria-label={t('note')} title={t('note')}><MessageSquareText size={15} /><span>{t('note')}</span></button>
+    <button className="rv-selection-toolbar__action" onClick={onDictionary} aria-label={t('dictionary')} title={t('dictionary')}><BookOpen size={15} /><span>{t('dictionary')}</span></button>
+    <button className="rv-selection-toolbar__action" onClick={onShare} aria-label={t('share')} title={t('share')}><Share2 size={15} /><span>{t('share')}</span></button>
+    <button className="rv-selection-toolbar__action" onClick={onClose} aria-label={t('closeSelection')} title={t('closeSelection')}><X size={15} /></button>
+    {dictionary && <p className="rv-selection-toolbar__note" aria-live="polite">{dictionary}</p>}
   </aside>
-}
-
-function Action({ label, onClick, icon: Icon }: { label: string; onClick: () => void; icon: typeof Copy }) {
-  return <button className="reader-selection-action" onClick={onClick} aria-label={label} title={label}><Icon size={15} /><span>{label}</span></button>
 }

@@ -1,7 +1,8 @@
 export type BookSource = 'imported' | 'created'
 export type BookFormat = 'epub' | 'pdf' | 'docx' | 'readr'
-export type ReaderTheme = 'light' | 'sepia' | 'dark'
-export type ReaderFontId = 'source-serif' | 'lora' | 'bitter' | 'merriweather' | 'atkinson' | 'inter' | 'public-sans' | 'serif' | 'sans'
+export type ReaderTheme = 'light' | 'sepia' | 'dark' | 'cream' | 'gray' | 'black'
+export type ReaderFontId = 'literata' | 'georgia' | 'source-sans' | 'opendyslexic'
+export type ReaderTextAlign = 'left' | 'center' | 'justify'
 export type ShelfStatus = 'saved' | 'wishlist' | 'reading' | 'completed'
 
 export interface Book {

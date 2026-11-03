@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { AlignJustify, BookOpen, Globe2, MoonStar, Trash2, Type } from 'lucide-react'
+import { AlignJustify, BookOpen, Globe2, MoonStar, Sun, Trash2, Type } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { ThemeSwitcher } from '@/components/reader/ThemeSwitcher'
 import { useAppTheme } from '@/components/ui/AppThemeProvider'
@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const router = useRouter()
   const { theme, setTheme } = useAppTheme()
   const { language, setLanguage } = useLanguage()
-  const { fontFamily, setFontFamily, fontSize, setFontSize, margin, setMargin, lineSpacing, setLineSpacing } = useReaderStore()
+  const { fontFamily, setFontFamily, fontSize, setFontSize, lineHeight, setLineHeight, brightness, setBrightness } = useReaderStore()
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
@@ -47,9 +47,9 @@ export default function SettingsPage() {
           <Setting title={t('appTheme')} subtitle={theme === 'dark' ? t('dark') : t('light')} icon={MoonStar}><div className="flex gap-2"><Choice active={theme === 'light'} onClick={() => setTheme('light')}>{t('light')}</Choice><Choice active={theme === 'dark'} onClick={() => setTheme('dark')}>{t('dark')}</Choice></div></Setting>
           <Setting title={t('language')} subtitle="Português, English, Español" icon={Globe2}><select className="field max-w-xs" value={language} onChange={(event) => setLanguage(event.target.value as AppLanguage)}><option value="pt">Português</option><option value="en">English</option><option value="es">Español</option></select></Setting>
           <Setting title={t('readerDefaults')} subtitle="Tema do papel" icon={BookOpen}><ThemeSwitcher /></Setting>
-          <Setting title="Tipografia" subtitle={`${fontSize}px`} icon={Type}><div className="mb-4 flex gap-2"><Choice active={fontFamily === 'serif'} onClick={() => setFontFamily('serif')}>Serif</Choice><Choice active={fontFamily === 'sans'} onClick={() => setFontFamily('sans')}>Sans</Choice></div><input className="w-full" type="range" min="13" max="28" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></Setting>
-          <Setting title="Margens" subtitle={`${margin}px`} icon={AlignJustify}><input className="w-full" type="range" min="18" max="70" value={margin} onChange={(event) => setMargin(Number(event.target.value))} /></Setting>
-          <Setting title="Espaçamento" subtitle={lineSpacing.toFixed(1)} icon={AlignJustify}><input className="w-full" type="range" min="1.3" max="2.1" step="0.1" value={lineSpacing} onChange={(event) => setLineSpacing(Number(event.target.value))} /></Setting>
+          <Setting title="Tipografia" subtitle={`${fontSize}px`} icon={Type}><div className="mb-4 flex flex-wrap gap-2"><Choice active={fontFamily === 'literata'} onClick={() => setFontFamily('literata')}>Literata</Choice><Choice active={fontFamily === 'georgia'} onClick={() => setFontFamily('georgia')}>Georgia</Choice><Choice active={fontFamily === 'source-sans'} onClick={() => setFontFamily('source-sans')}>Source Sans</Choice><Choice active={fontFamily === 'opendyslexic'} onClick={() => setFontFamily('opendyslexic')}>OpenDyslexic</Choice></div><input className="w-full" type="range" min={14} max={28} step={2} value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></Setting>
+          <Setting title="Espaçamento" subtitle={lineHeight.toFixed(2)} icon={AlignJustify}><div className="flex gap-2">{([1.5, 1.6, 1.65, 1.8] as const).map((value) => <Choice key={value} active={lineHeight === value} onClick={() => setLineHeight(value)}>{value.toFixed(2)}</Choice>)}</div></Setting>
+          <Setting title="Brilho" subtitle={`${brightness}%`} icon={Sun}><input className="w-full" type="range" min={45} max={100} value={brightness} onChange={(event) => setBrightness(Number(event.target.value))} /></Setting>
         </section>
         <section className="mt-10 rounded-2xl border border-coral/40 bg-coral/5 p-6"><Trash2 className="text-coral" size={20} /><h2 className="mt-4 text-sm font-semibold">{t('deleteAccount')}</h2><p className="mt-2 max-w-2xl text-xs leading-relaxed text-muted">{t('deleteDescription')}</p><button disabled={deleting} onClick={deleteAccount} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-coral px-4 text-xs font-semibold text-white disabled:opacity-50"><Trash2 size={15} />{deleting ? t('deleting') : t('deleteAction')}</button>{error && <p className="mt-3 text-xs text-coral" role="alert">{error}</p>}</section>
         <p className="mt-5 text-[10px] text-muted">{common('save')}: preferências persistidas automaticamente neste dispositivo.</p>
