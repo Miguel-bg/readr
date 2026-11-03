@@ -1,11 +1,16 @@
 'use client'
 
 import React from 'react'
+import dynamic from 'next/dynamic'
 import type { ReaderChapter } from '@/lib/types'
 import { useReaderStore } from '@/store/readerStore'
 import { ScrollEngine } from './engines/ScrollEngine'
 import { SlideEngine } from './engines/SlideEngine'
-import { RealisticFlip } from './engines/RealisticFlip'
+
+const RealisticFlip = dynamic(
+  () => import('./engines/RealisticFlip').then((mod) => mod.RealisticFlip),
+  { ssr: false }
+)
 
 interface ReaderEngineProps {
   chapters: ReaderChapter[]
