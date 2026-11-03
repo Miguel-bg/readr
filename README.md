@@ -1,18 +1,23 @@
 # Readr 📚
 
-Um aplicativo social de leitura completo rodando 100% no **Cloudflare Workers** com D1 como único banco de dados.
+**Leitor social de livros 100% em Cloudflare Workers, D1 como único banco.**
+
+- **Desktop**: visual fiel ao [textstack](https://github.com/mrviduus/textstack)  
+- **Mobile**: visual fiel ao [liseur](https://github.com/chmouel/liseur)
 
 ---
 
 ## ✨ Features
 
-- **Múltiplos Motores de Leitura**: 
-  - **Realistic**: Efeito de virar página realista (`react-pageflip`).
-  - **Kindle-style (Slide)**: Transição limpa e instantânea entre páginas.
-  - **Rolagem Contínua (Scroll)**: Experiência de leitura fluida estilo *TextStack*.
-- **Importação Inteligente**: EPUB, PDF e DOCX com extração automática de metadados, capas e sumários hierárquicos (TOC).
-- **Customização Tipográfica**: Troca de fontes (Lora, Inter, Atkinson, etc.), controle de tamanho, entrelinhas e temas (Claro, Escuro, Sépia).
-- **Social Reading**: Siga outros leitores, acompanhe o progresso e interaja com avaliações.
+| Feature | Descrição |
+|---------|-----------|
+| **Importação** | EPUB, PDF, DOCX com metadados, capas e TOC automatizados |
+| **Leitor adaptativo** | textstack (desktop) + liseur (mobile) com anchor-based navigation |
+| **Marcadores & Grifos** | Salve posições exatas e destaque com cores (amarelo, verde, azul, rosa) |
+| **Busca** | Pesquise palavras dentro do livro, navegue diretamente para o resultado |
+| **Temas visual** | 6 temas: light, sepia, cream, gray, dark, black + ajuste de brilho 45–100% |
+| **Tipografia** | 4 fontes (Literata, Georgia, Source Sans, OpenDyslexic), tamanho, alinhamento, espaçamento |
+| **Social** | Crie livros, interaja com avaliações e perfil público |
 
 ---
 
@@ -22,94 +27,84 @@ Um aplicativo social de leitura completo rodando 100% no **Cloudflare Workers** 
 |------------|-----|
 | **Next.js 15** | App Router, React 18, TypeScript strict |
 | **Cloudflare Workers** | Runtime edge com `@opennextjs/cloudflare` |
-| **D1 (SQLite)** | Banco de dados relacional + armazenamento em chunks |
+| **D1 (SQLite)** | Banco único + chunks de conteúdo |
 | **Tailwind CSS** | Estilização responsiva |
-| **Zustand** | Gerenciamento de estado (Preferências do leitor) |
-| **JWT HS256** | Autenticação segura via cookie `httpOnly` + PBKDF2 |
+| **Zustand** | `readerStore` v2 (tema, fonte, tamanho, espaçamento, brilho) |
+| **next-intl** | i18n em PT/EN/ES |
+| **JWT HS256** | Auth via cookie `httpOnly` + PBKDF2 (310k iterações) |
 
 ---
 
-## 📁 Project Structure
+## 📁 Estrutura
 
 ```
 /
-├── d1/                          # Schema SQL do banco D1
-│   └── schema.sql
-├── scripts/                     # Scripts utilitários
-│   └── check-reader-translations.mjs
+├── d1/                     # Schema D1
+├── scripts/                 # Scripts utilitários
 ├── src/
-│   ├── app/                     # App Router (páginas e rotas de API)
-│   │   ├── api/                 # Endpoints de Autenticação, RPC e Files
-│   │   ├── auth/                # Login e Cadastro
-│   │   ├── book/[id]/           # Motores e página de leitura
-│   │   └── library/             # Estante e Catálogo
+│   ├── app/                 # Pages + API routes
 │   ├── components/
-│   │   └── reader/
-│   │       ├── engines/         # RealisticFlip, ScrollEngine, SlideEngine
-│   │       └── ReaderPreferences.tsx # Painel de customização
-│   ├── lib/                     # Parsers (EPUB/PDF/DOCX) e lógica D1
-│   └── store/                   # Zustand store (ReaderPreferences)
-├── public/                      # Assets estáticos
-├── wrangler.jsonc               # Configuração do Cloudflare Worker
-└── package.json                 # Dependências e scripts
+│   │   ├── editor/          # Editor de livros criados
+│   │   ├── home/            # Dashboard e Continue Reading Hero
+│   │   ├── library/         # Estante
+│   │   ├── reader/          # ReaderEngine, SelectionToolbar, ThemeSwitcher
+│   │   ├── reader/v2/       # TextStackReader, LiseurReader, content, useBookData
+│   │   ├── ui/              # AppThemeProvider, LanguageProvider, etc
+│   ├── lib/                 # Parsers, data layer, ReaderSource
+│   ├── messages/            # pt.json, en.json, es.json (i18n)
+│   └── store/               # readerStore.ts (v2)
+├── public/fonts/            # Literata, SourceSan3, OpenDyslexic
+├── src/styles/              # readr.css, reader-v2.css
+├── wrangler.jsonc           # Config Worker (D1, ASSETS, WORKER_SELF_REFERENCE)
+└── package.json             # Dependências
 ```
 
 ---
 
-## 🚀 Como Executar Localmente
+## 🚀 Desenvolvimento
 
-### Pré-requisitos
-- Node.js 18+ e npm
-
-### Instalação
 ```bash
-# Instalar dependências
 npm install
-
-# Inicializar banco D1 local (Miniflare)
 npx wrangler d1 execute readr --local --file=d1/schema.sql
-
-# Iniciar servidor de desenvolvimento
-npm run dev        # http://localhost:3000
+npm run dev          # http://localhost:3000
 ```
 
-Crie um arquivo `.dev.vars` na raiz com a chave JWT de teste:
+`.env.local` (ou `.dev.vars`):
 ```env
-JWT_SECRET=sua_chave_secreta_local
+JWT_SECRET=sua_chave_secreta
 ```
 
 ---
 
-## 🏗️ Publicação (Deploy)
+## 🏗️ Deploy
 
-O projeto está configurado para deploy automático via GitHub no Cloudflare Pages/Workers.
+**Automático**: Push para `main` dispara Cloudflare Workers Builds (`opennextjs-cloudflare build` → `wrangler deploy`).
 
-Para deploy manual:
+**Manual**:
 ```bash
-npm run build
-npx wrangler secret put JWT_SECRET
-npm run deploy
+npx opennextjs-cloudflare build
+npx wrangler deploy
 ```
 
-### 🔗 Demo em Produção
-**https://readr.miguxl.workers.dev**
+**Produção**: https://readr.miguxl.workers.dev  
+**Versão atual**: `9c6eff4d` (auto-deploy ativo)
 
 ---
 
-## 🔒 Segurança e Arquitetura
+## 🔒 Arquitetura
 
-- **Zero-Trust Client**: A senha nunca sai do navegador em claro (derivação via PBKDF2 com 310k iterações).
-- **Server-Side Authorization**: Toda a lógica de acesso e regras de negócio residem no backend (D1 + Worker).
-- **Isolamento de Arquivos**: Arquivos de livros são privados e protegidos contra acesso não autorizado (404 sem sessão válida).
+- **Zero-Trust**: senha derivada PBKDF2 (310k iterações), nunca enviada em claro
+- **Server auth**: todas as regras de acesso no backend D1/Worker
+- **Conteúdo privado**: `book_get` só retorna `content` ao dono do livro
 
 ---
 
 ## 📄 License
 
-MIT License — Livre para uso, estudo e modificação.
+MIT — livre para uso, estudo e modificação.
 
 ---
 
-## 👤 Author
+## 👤 Autor
 
-Desenvolvido por **Miguel Braga** como projeto de portfólio.
+Desenvolvido por **Miguel Braga**
