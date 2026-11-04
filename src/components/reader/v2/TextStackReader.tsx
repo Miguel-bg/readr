@@ -1,27 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { ArrowLeft, Bookmark as BookmarkIcon, ChevronLeft, ChevronRight, List as ListIcon, RotateCcw, Search as SearchIcon, Settings as SettingsIcon, X } from 'lucide-react'
 import { READER_FONTS, readerFontCss } from '@/lib/reader/fonts'
 import { useReaderStore } from '@/store/readerStore'
-import type { HighlightColor } from '@/lib/types'
 import { SelectionToolbar } from '../SelectionToolbar'
 import {
   ChapterBlocks,
   anchorAtPoint,
   chapterIndexForAnchor,
-  clearPageSelection,
   rectForAnchor,
-  searchBook,
   snippetForAnchor,
-  useSelection,
-  type BookSearchResult,
 } from './content'
+import { useReaderActions } from './useReaderActions'
 import type { BookData } from './useBookData'
-
-const safeRoute = (value: string | null, fallback: string) => value?.startsWith('/') && !value.startsWith('//') ? value : fallback
 
 const TOC_TABS = ['contents', 'bookmarks', 'highlights'] as const
 type TocTab = typeof TOC_TABS[number]
@@ -50,63 +42,60 @@ const ALIGN_OPTIONS: Array<{ value: 'left' | 'center' | 'justify'; key: string }
  * top bar 56px fixa, coluna de ~680px com scroll vertical por capítulo,
  * footer com barra 4px + capítulo/contador/percentual, drawers TOC/Busca
  * (esquerda) e Ajustes (direita), navegação de capítulo com botões de 44px.
+ * A lógica compartilhada (model: capítulo, âncora, salto, busca, grifos)
+ * mora em useReaderActions; aqui fica só a apresentação (scroll vertical).
  * ========================================================================== */
 
 export function TextStackReader({ data }: { data: BookData }) {
-  const t = useTranslations('reader')
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const { theme, setTheme, fontFamily, setFontFamily, fontSize, setFontSize, lineHeight, setLineHeight, textAlign, setTextAlign } = useReaderStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const articleRef = useRef<HTMLElement>(null)
   const frameRef = useRef(0)
-  const viewAnchorRef = useRef(0)
-  const chapterIndexRef = useRef(0)
-  const pendingScroll = useRef<{ kind: 'top' } | { kind: 'anchor'; anchor: number } | null>(null)
-  const initialApplied = useRef(false)
 
-  const [chapterIndex, setChapterIndex] = useState<number | null>(null)
-  const [viewAnchor, setViewAnchor] = useState(0)
+  const {
+    t,
+    selection,
+    close,
+    chapterIndex,
+    chapter,
+    chapterStart,
+    chapterWords,
+    viewAnchor,
+    chapterIndexRef,
+    pendingJump,
+    jumpTick,
+    setViewAnchorNow,
+    goToChapter,
+    resetSearch,
+    searchOpen,
+    setSearchOpen,
+    searchText,
+    setSearchText,
+    results,
+    resultIndex,
+    inlineMatch,
+    jumpToResult,
+    runSearch,
+    searchStep,
+    closeSearch,
+    isBookmarked,
+    toggleBookmark,
+    copied,
+    dictionary,
+    handleHighlight,
+    handleNote,
+    handleDictionary,
+    handleShare,
+    handleCopy,
+    dismissSelection,
+  } = useReaderActions(data, scrollRef)
+
   const [chromeVisible, setChromeVisible] = useState(true)
   const [tocOpen, setTocOpen] = useState(false)
   const [tocTab, setTocTab] = useState<TocTab>('contents')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchText, setSearchText] = useState('')
-  const [results, setResults] = useState<BookSearchResult[]>([])
-  const [resultIndex, setResultIndex] = useState(-1)
-  const [inlineMatch, setInlineMatch] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [dictionary, setDictionary] = useState('')
-
-  /* tick de saltos: aplica o pendingScroll mesmo quando o salto é dentro do
-   * capítulo atual (grifo/marcador). */
-  const [jumpTick, setJumpTick] = useState(0)
-
-  const { selection, setSelection } = useSelection(scrollRef)
-
-  const source = searchParams.get('source') === 'created' ? 'created' : 'imported'
-  const close = useCallback(() => router.replace(safeRoute(searchParams.get('from'), `/book/${data.book?.id || ''}/details?source=${source}`)), [router, searchParams, data.book?.id, source])
-
-  /* ------------------------------------------------- primeiro carregamento */
-  useEffect(() => {
-    if (data.loading || data.error) return
-    if (!data.chapters.length || initialApplied.current) return
-    initialApplied.current = true
-    const anchor = Math.max(0, Math.min(data.savedAnchor, data.totalWords - 1))
-    const index = anchor > 0 ? chapterIndexForAnchor(data.chapterStarts, anchor) : 0
-    setChapterIndex(index)
-    viewAnchorRef.current = anchor
-    setViewAnchor(anchor)
-    pendingScroll.current = anchor > 0 && data.chapterStarts[index] !== anchor ? { kind: 'anchor', anchor } : { kind: 'top' }
-  }, [data.loading, data.error, data.chapters.length, data.savedAnchor, data.chapterStarts, data.totalWords])
-
-  useEffect(() => {
-    if (chapterIndex == null) return
-    chapterIndexRef.current = chapterIndex
-  }, [chapterIndex])
 
   /* --------------------------------------------- restore de posição no cap */
   const probeTopAnchor = useCallback(() => {
@@ -119,31 +108,26 @@ export function TextStackReader({ data }: { data: BookData }) {
         if (anchor != null) break
       }
       if (anchor == null) return
-      viewAnchorRef.current = anchor
-      setViewAnchor(anchor)
-      const index = chapterIndexRef.current
-      const chapterStart = data.chapterStarts[index] ?? 0
-      const percent = data.totalWords ? Math.max(0, Math.min(100, Math.round(((anchor + 1) / data.totalWords) * 100))) : 0
-      data.saveProgress(anchor, index, percent)
-      void chapterStart
+      setViewAnchorNow(anchor)
+      data.saveProgress(anchor, chapterIndexRef.current, data.totalWords ? Math.max(0, Math.min(100, Math.round(((anchor + 1) / data.totalWords) * 100))) : 0)
     })
-  }, [data])
+  }, [data, setViewAnchorNow, chapterIndexRef])
 
   useLayoutEffect(() => {
     if (chapterIndex == null) return
     const element = scrollRef.current
     const article = articleRef.current
-    const pending = pendingScroll.current
+    const pending = pendingJump.current
     if (!element || !article || !pending) return
-    pendingScroll.current = null
-    if (pending.kind === 'top') {
-      element.scrollTop = 0
-    } else {
+    pendingJump.current = null
+    if (pending.kind === 'anchor') {
       const rect = rectForAnchor(article, pending.anchor)
       if (rect) element.scrollTop = Math.max(0, rect.top + element.scrollTop - 108)
+    } else {
+      element.scrollTop = 0
     }
     probeTopAnchor()
-  }, [chapterIndex, jumpTick, data.chapters, probeTopAnchor])
+  }, [chapterIndex, jumpTick, data.chapters, probeTopAnchor, pendingJump])
 
   /* ---------------------------------------------------------- scroll →ancora */
   const onScroll = useCallback(() => {
@@ -158,28 +142,13 @@ export function TextStackReader({ data }: { data: BookData }) {
         if (anchor != null) break
       }
       if (anchor == null) return
-      viewAnchorRef.current = anchor
-      setViewAnchor(anchor)
-      const index = chapterIndexRef.current
+      setViewAnchorNow(anchor)
       const percent = data.totalWords ? Math.max(0, Math.min(100, Math.round(((anchor + 1) / data.totalWords) * 100))) : 0
-      data.saveProgress(anchor, index, percent)
+      data.saveProgress(anchor, chapterIndexRef.current, percent)
     })
-  }, [data])
+  }, [data, setViewAnchorNow, chapterIndexRef])
 
   /* ------------------------------------------------------------ navegação */
-  const goToChapter = useCallback((index: number, locus?: number) => {
-    if (index < 0 || index >= data.chapters.length) return
-    clearPageSelection()
-    setSelection(null)
-    const indexAt = data.chapterStarts[index] ?? 0
-    const target = locus != null && locus > indexAt ? locus : indexAt
-    setJumpTick((value) => value + 1)
-    setChapterIndex(index)
-    viewAnchorRef.current = target
-    setViewAnchor(target)
-    pendingScroll.current = target > indexAt ? { kind: 'anchor', anchor: target } : { kind: 'top' }
-  }, [data.chapters, data.chapterStarts, setSelection])
-
   const prevChapter = useCallback(() => chapterIndex != null && goToChapter(chapterIndex - 1), [chapterIndex, goToChapter])
   const nextChapter = useCallback(() => chapterIndex != null && goToChapter(chapterIndex + 1), [chapterIndex, goToChapter])
 
@@ -191,116 +160,16 @@ export function TextStackReader({ data }: { data: BookData }) {
       else if (event.key === 'ArrowRight') { event.preventDefault(); nextChapter() }
       else if (event.key === 'Escape') {
         setTocOpen(false); setSearchOpen(false); setSettingsOpen(false); setLightbox(null)
-        clearPageSelection(); setSelection(null)
+        dismissSelection()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prevChapter, nextChapter, setSelection])
-
-  /* --------------------------------------------------------------- busca */
-  const jumpToResult = useCallback((index: number) => {
-    const result = results[index]
-    if (!result) return
-    setResultIndex(index)
-    setInlineMatch(searchText.trim().toLocaleLowerCase())
-    goToChapter(result.chapterIndex, result.anchor)
-  }, [results, searchText, goToChapter])
-
-  const runSearch = useCallback((raw: string) => {
-    const found = searchBook(data.chapters, raw)
-    setResults(found)
-    setResultIndex(found.length ? 0 : -1)
-    setInlineMatch(raw.trim().toLocaleLowerCase())
-  }, [data.chapters])
-
-  const searchStep = useCallback((delta: number) => {
-    if (!results.length) return
-    const next = (resultIndex + delta + results.length) % results.length
-    jumpToResult(next)
-  }, [results, resultIndex, jumpToResult])
-
-  const openSearch = useCallback(() => {
-    setTocOpen(false); setSettingsOpen(false); setChromeVisible(true)
-    setSearchOpen(true)
-  }, [])
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false)
-    setInlineMatch('')
-    setResults([]); setResultIndex(-1)
-  }, [])
-
-  /* -------------------------------------------------- marcador / grifos */
-  const chapter = chapterIndex != null ? data.chapters[chapterIndex] : null
-  const isBookmarked = chapterIndex != null && data.bookmarks.some((item) => item.page_number === chapterIndex)
-
-  const toggleBookmark = useCallback(async () => {
-    const index = chapterIndexRef.current
-    const anchor = viewAnchorRef.current
-    await data.toggleBookmarkAt(anchor, index)
-  }, [data])
-
-  const handleHighlight = useCallback(async (color: HighlightColor) => {
-    if (!selection) return
-    await data.addHighlight({ anchorStart: selection.anchorStart, anchorEnd: selection.anchorEnd, text: selection.text, color })
-    clearPageSelection()
-    setSelection(null)
-  }, [selection, data, setSelection])
-
-  const handleNote = useCallback(async () => {
-    if (!selection) return
-    const note = window.prompt(t('notePrompt'), '') || ''
-    if (!note) return
-    await data.addHighlight({ anchorStart: selection.anchorStart, anchorEnd: selection.anchorEnd, text: selection.text, color: 'yellow', note })
-    clearPageSelection()
-    setSelection(null)
-  }, [selection, t, data, setSelection])
-
-  const handleDictionary = useCallback(async () => {
-    if (!selection) return
-    const word = selection.text.trim().split(/\s+/)[0].replace(/[^\p{L}'-]/gu, '')
-    if (!word) return
-    setDictionary(t('dictionaryLoading'))
-    try {
-      const language = (data.book?.language || '').toLowerCase().startsWith('en') ? 'en' : 'pt'
-      if (language === 'en') {
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`)
-        const payload = await response.json()
-        setDictionary(payload?.[0]?.meanings?.[0]?.definitions?.[0]?.definition || t('dictionaryUnavailable'))
-      } else {
-        const response = await fetch(`https://pt.wikipedia.org/w/api.php?action=opensearch&origin=*&format=json&limit=1&search=${encodeURIComponent(word)}`)
-        const payload = await response.json()
-        setDictionary(payload?.[2]?.[0] || t('dictionaryUnavailable'))
-      }
-    } catch {
-      setDictionary(t('dictionaryUnavailable'))
-    }
-  }, [selection, data.book?.language, t])
-
-  const handleShare = useCallback(async () => {
-    if (!selection) return
-    if (navigator.share) await navigator.share({ text: selection.text, title: data.book?.title })
-    else await navigator.clipboard.writeText(selection.text)
-  }, [selection, data.book?.title])
-
-  const handleCopy = useCallback(async () => {
-    if (!selection) return
-    await navigator.clipboard.writeText(selection.text)
-    setCopied(true)
-  }, [selection])
-
-  const dismissSelection = useCallback(() => {
-    clearPageSelection()
-    setSelection(null)
-    setCopied(false)
-    setDictionary('')
-  }, [setSelection])
+  }, [prevChapter, nextChapter, setTocOpen, setSearchOpen, setSettingsOpen, dismissSelection])
 
   /* --------------------------------------------------------- conteúdo */
   const percent = data.totalWords ? Math.max(0, Math.min(100, Math.round(((viewAnchor + 1) / data.totalWords) * 100))) : 0
   const chapterName = chapter?.title || ''
-  const chapterStart = chapterIndex != null ? data.chapterStarts[chapterIndex] ?? 0 : 0
-  const chapterWords = chapterIndex != null ? data.chapterWordCounts[chapterIndex] ?? 0 : 0
   const chapterProgress = chapterWords > 0 ? Math.max(0, Math.min(1, (viewAnchor - chapterStart) / chapterWords)) : 0
 
   const onStageClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
@@ -330,7 +199,7 @@ export function TextStackReader({ data }: { data: BookData }) {
         </div>
         <div className="rv-top-bar__right">
           {chromeVisible && <span className="rv-top-bar__progress">{percent}%</span>}
-          <button type="button" className="rv-top-bar__btn" aria-label={t('search')} onClick={openSearch}><SearchIcon size={18} /></button>
+          <button type="button" className="rv-top-bar__btn" aria-label={t('search')} onClick={() => { setSearchOpen(true); setTocOpen(false); setSettingsOpen(false); setChromeVisible(true) }}><SearchIcon size={18} /></button>
           <button
             type="button"
             className="rv-top-bar__btn"
@@ -433,7 +302,7 @@ export function TextStackReader({ data }: { data: BookData }) {
                   key={item.id || index}
                   type="button"
                   className={`rv-toc-drawer__item ${index === chapterIndex ? 'active' : ''}`}
-                  onClick={() => { goToChapter(index); setTocOpen(false) }}
+                  onClick={() => { goToChapter(index, 'start'); setTocOpen(false) }}
                 >
                   <span className="rv-toc-drawer__number">{index + 1}</span>
                   <span className="rv-toc-drawer__title-text">{item.title}</span>
@@ -448,7 +317,7 @@ export function TextStackReader({ data }: { data: BookData }) {
                     <button
                       type="button"
                       className="rv-drawer-row__main"
-                      onClick={() => { goToChapter(itemIndex, bookmarkAnchor || undefined); setTocOpen(false) }}
+                      onClick={() => { goToChapter(itemIndex, bookmarkAnchor || 'start'); setTocOpen(false) }}
                     >
                       <span className="rv-drawer-row__text">{snippet || data.chapters[itemIndex]?.title}</span>
                       <span className="rv-drawer-row__meta">{data.chapters[itemIndex]?.title}</span>
@@ -475,7 +344,7 @@ export function TextStackReader({ data }: { data: BookData }) {
                       {item.note ? <span className="rv-drawer-row__note">{item.note}</span> : null}
                       <span className="rv-drawer-row__meta">{data.chapters[itemIndex]?.title}</span>
                     </button>
-                    <button type="button" className="rv-drawer-row__remove" aria-label={t('closeReader')} onClick={() => { void data.removeHighlight(item.id) }}>
+                    <button type="button" className="rv-drawer-row__remove" aria-label={t('removeHighlight')} onClick={() => { void data.removeHighlight(item.id) }}>
                       <X size={16} />
                     </button>
                   </div>
@@ -503,7 +372,7 @@ export function TextStackReader({ data }: { data: BookData }) {
                   aria-label={t('search')}
                   autoFocus
                 />
-                {searchText ? <button type="button" className="rv-search-drawer__close" aria-label={t('closeReader')} onClick={() => { setSearchText(''); setInlineMatch(''); setResults([]); setResultIndex(-1) }}><X size={16} /></button> : null}
+                {searchText ? <button type="button" className="rv-search-drawer__close" aria-label={t('closeReader')} onClick={resetSearch}><X size={16} /></button> : null}
               </div>
               <button type="button" className="rv-search-drawer__close" aria-label={t('closeReader')} onClick={closeSearch}><X size={18} /></button>
             </div>

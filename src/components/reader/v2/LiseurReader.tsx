@@ -1,27 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { ArrowLeft, Bookmark as BookmarkIcon, Sun, Search as SearchIcon, X } from 'lucide-react'
 import { READER_FONTS, readerFontCss } from '@/lib/reader/fonts'
 import { useReaderStore } from '@/store/readerStore'
-import type { HighlightColor } from '@/lib/types'
 import { SelectionToolbar } from '../SelectionToolbar'
 import {
   ChapterBlocks,
   anchorAtPoint,
   chapterIndexForAnchor,
-  clearPageSelection,
   rectForAnchor,
-  searchBook,
   snippetForAnchor,
-  useSelection,
-  type BookSearchResult,
 } from './content'
+import { useReaderActions } from './useReaderActions'
 import type { BookData } from './useBookData'
-
-const safeRoute = (value: string | null, fallback: string) => value?.startsWith('/') && !value.startsWith('//') ? value : fallback
 
 /* Margens laterais de cada "página" do pager (column-gap do multicol). */
 const PAGE_GAP_PX = 44
@@ -33,7 +25,9 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 /* Leitor celular — visual 1:1 de chmouel/liseur (Apache-2.0):
  * pager horizontal paginado (Kindle), tap zones (esquerda/centro/direita),
  * chrome em duas barras finas, scrubber com ticks de capítulos, sheet "Aa"
- * (temas/Tamanho/Brilho/Fonte) e tela Navegar (Sumário/Marcadores/Grifos). */
+ * (temas/Tamanho/Brilho/Fonte) e tela Navegar (Sumário/Marcadores/Grifos).
+ * A lógica compartilhada (modelo: capítulo, âncora, salto, busca, grifos)
+ * mora em useReaderActions; aqui fica só a apresentação (pager de colunas). */
 
 const NAV_TABS = ['contents', 'bookmarks', 'highlights'] as const
 type NavTab = typeof NAV_TABS[number]
@@ -47,71 +41,65 @@ const MOBILE_THEMES: Array<{ value: 'light' | 'cream' | 'sepia' | 'gray' | 'blac
 ]
 
 export function LiseurReader({ data }: { data: BookData }) {
-  const t = useTranslations('reader')
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const { theme, setTheme, fontFamily, setFontFamily, mobileFontSize, setMobileFontSize, brightness, setBrightness } = useReaderStore()
 
   const pagerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const topAnchorRef = useRef(0)
-  const chapterIndexRef = useRef(0)
-  const pendingJump = useRef<{ kind: 'start' } | { kind: 'end' } | { kind: 'anchor'; anchor: number } | null>(null)
   const dragRef = useRef<{ startX: number; moved: boolean } | null>(null)
   const lastDragPx = useRef(0)
   const suppressClick = useRef(false)
   const scrubPreviewRef = useRef<number | null>(null)
   const probeRef = useRef<() => void>(() => {})
-  const initialApplied = useRef(false)
 
-  const [chapterIndex, setChapterIndex] = useState<number | null>(null)
   const [column, setColumn] = useState(0)
   const [chapterPages, setChapterPages] = useState(1)
   const [measured, setMeasured] = useState<Partial<Record<number, number>>>({})
   const [viewportWidth, setViewportWidth] = useState(0)
   const [fontTick, setFontTick] = useState(0)
-  const [topAnchor, setTopAnchor] = useState(0)
   const [chromeVisible, setChromeVisible] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [navigateOpen, setNavigateOpen] = useState(false)
   const [navigateTab, setNavigateTab] = useState<NavTab>('contents')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchText, setSearchText] = useState('')
-  const [searchResults, setSearchResults] = useState<BookSearchResult[]>([])
-  const [inlineMatch, setInlineMatch] = useState('')
   const [dragPx, setDragPx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [scrubPreview, setScrubPreview] = useState<number | null>(null)
-  const [copiedState, setCopiedState] = useState(false)
-  const [dictionary, setDictionary] = useState('')
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
 
-  const { selection, setSelection } = useSelection(pagerRef)
-
-  const source = searchParams.get('source') === 'created' ? 'created' : 'imported'
-  const close = useCallback(() => router.replace(safeRoute(searchParams.get('from'), `/book/${data.book?.id || ''}/details?source=${source}`)), [router, searchParams, data.book?.id, source])
-
-  /* tick de saltos: força o efeito de medição a rodar mesmo quando o salto é
-   * dentro do capítulo atual (grifo/marcador). */
-  const [jumpTick, setJumpTick] = useState(0)
-
-  /* ------------------------------------------------- primeiro carregamento */
-  useEffect(() => {
-    if (data.loading || data.error) return
-    if (!data.chapters.length || initialApplied.current) return
-    initialApplied.current = true
-    const anchor = clamp(data.savedAnchor, 0, Math.max(0, data.totalWords - 1))
-    const index = anchor > 0 ? chapterIndexForAnchor(data.chapterStarts, anchor) : 0
-    setChapterIndex(index)
-    topAnchorRef.current = anchor
-    setTopAnchor(anchor)
-    pendingJump.current = anchor > 0 && data.chapterStarts[index] !== anchor ? { kind: 'anchor', anchor } : { kind: 'start' }
-  }, [data.loading, data.error, data.chapters.length, data.savedAnchor, data.chapterStarts, data.totalWords])
-
-  useEffect(() => {
-    if (chapterIndex == null) return
-    chapterIndexRef.current = chapterIndex
-  }, [chapterIndex])
+  const {
+    t,
+    selection,
+    close,
+    chapterIndex,
+    chapter,
+    chapterStart,
+    chapterWords,
+    viewAnchor,
+    viewAnchorRef,
+    chapterIndexRef,
+    pendingJump,
+    jumpTick,
+    setViewAnchorNow,
+    goToChapter,
+    searchOpen,
+    setSearchOpen,
+    searchText,
+    setSearchText,
+    results,
+    inlineMatch,
+    jumpToResult,
+    runSearch,
+    closeSearch,
+    isBookmarked,
+    toggleBookmark,
+    copied,
+    dictionary,
+    handleHighlight,
+    handleNote,
+    handleDictionary,
+    handleShare,
+    handleCopy,
+    dismissSelection,
+  } = useReaderActions(data, pagerRef)
 
   /* A medição das colunas só é confiável depois que as fontes carregam. */
   useEffect(() => {
@@ -129,10 +117,6 @@ export function LiseurReader({ data }: { data: BookData }) {
     observer.observe(viewport)
     return () => observer.disconnect()
   }, [])
-
-  const chapter = chapterIndex != null ? data.chapters[chapterIndex] : null
-  const chapterStart = chapterIndex != null ? data.chapterStarts[chapterIndex] ?? 0 : 0
-  const chapterWords = chapterIndex != null ? data.chapterWordCounts[chapterIndex] ?? 0 : 0
 
   /* ------------------------------------------- estimativa páginas × capítulo */
   const estimatedPagesFor = useCallback((index: number) => {
@@ -154,7 +138,7 @@ export function LiseurReader({ data }: { data: BookData }) {
   const globalTotal = Math.max(1, chaptersBefore(data.chapters.length))
   const globalPage = (chapterIndex != null ? chaptersBefore(chapterIndex) : 0) + column + 1
   const percentText = data.totalWords
-    ? clamp(Math.round(((topAnchor + 1) / data.totalWords) * 100), 0, 100)
+    ? clamp(Math.round(((viewAnchor + 1) / data.totalWords) * 100), 0, 100)
     : clamp(Math.round((((chapterIndex != null ? chaptersBefore(chapterIndex) + column : 0) + 1) / globalTotal) * 100), 0, 100)
   const pageStep = Math.max(120, viewportWidth || 360)
 
@@ -179,8 +163,8 @@ export function LiseurReader({ data }: { data: BookData }) {
       if (rect) target = clamp(Math.round((rect.left - viewport.getBoundingClientRect().left) / step), 0, count - 1)
     } else if (jump && jump.kind === 'end') {
       target = count - 1
-    } else if (topAnchorRef.current >= chapterStart && topAnchorRef.current <= chapterStart + chapterWords) {
-      const rect = rectForAnchor(content, clamp(topAnchorRef.current, chapterStart, Math.max(chapterStart, chapterStart + chapterWords - 1)))
+    } else if (viewAnchorRef.current >= chapterStart && viewAnchorRef.current <= chapterStart + chapterWords) {
+      const rect = rectForAnchor(content, clamp(viewAnchorRef.current, chapterStart, Math.max(chapterStart, chapterStart + chapterWords - 1)))
       if (rect) target = clamp(Math.round((rect.left - viewport.getBoundingClientRect().left) / step), 0, count - 1)
     }
     pendingJump.current = null
@@ -190,7 +174,7 @@ export function LiseurReader({ data }: { data: BookData }) {
     if (hadJump) {
       requestAnimationFrame(() => probeRef.current())
     }
-  }, [chapterIndex, jumpTick, viewportWidth, mobileFontSize, fontFamily, fontTick, chapterStart, chapterWords])
+  }, [chapterIndex, jumpTick, viewportWidth, mobileFontSize, fontFamily, fontTick, chapterStart, chapterWords, pendingJump, viewAnchorRef])
 
   /* probe do anchor no topo da coluna — fonte de verdade do progresso */
   useEffect(() => {
@@ -203,27 +187,17 @@ export function LiseurReader({ data }: { data: BookData }) {
         if (anchor != null) break
       }
       if (anchor == null) return
-      topAnchorRef.current = anchor
-      setTopAnchor(anchor)
+      setViewAnchorNow(anchor)
       const percent = data.totalWords ? clamp(Math.round(((anchor + 1) / data.totalWords) * 100), 0, 100) : 0
       data.saveProgress(anchor, chapterIndexRef.current, percent)
     }
-  }, [data])
+  }, [data, setViewAnchorNow, chapterIndexRef])
 
   const probeAfterTransition = useCallback((delay = 300) => {
     window.setTimeout(() => probeRef.current(), delay)
   }, [])
 
   /* --------------------------------------------------------- navegação */
-  const goToChapter = useCallback((index: number, mode: 'start' | 'end' | number) => {
-    if (index < 0 || index >= data.chapters.length) return
-    clearPageSelection()
-    setSelection(null)
-    pendingJump.current = typeof mode === 'number' ? { kind: 'anchor', anchor: mode } : { kind: mode }
-    setJumpTick((value) => value + 1)
-    setChapterIndex(index)
-  }, [data.chapters, setSelection])
-
   const nextPage = useCallback(() => {
     if (chapterIndex == null) return
     if (column + 1 < chapterPages) {
@@ -296,88 +270,6 @@ export function LiseurReader({ data }: { data: BookData }) {
       setDragPx(0)
     }
   }, [nextPage, prevPage])
-
-  /* ----------------------------------------------------------- busca */
-  const jumpToResult = useCallback((result: BookSearchResult) => {
-    setInlineMatch(searchText.trim().toLocaleLowerCase())
-    goToChapter(result.chapterIndex, result.anchor)
-  }, [searchText, goToChapter])
-
-  const runSearch = useCallback((raw: string) => {
-    setSearchResults(searchBook(data.chapters, raw))
-    setInlineMatch(raw.trim().toLocaleLowerCase())
-  }, [data.chapters])
-
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false)
-    setInlineMatch('')
-    setSearchText('')
-    setSearchResults([])
-  }, [])
-
-  /* ------------------------------------------------------- marcadores */
-  const isBookmarked = chapterIndex != null && data.bookmarks.some((item) => item.page_number === chapterIndex)
-
-  const toggleBookmark = useCallback(async () => {
-    await data.toggleBookmarkAt(topAnchorRef.current, chapterIndexRef.current)
-  }, [data])
-
-  /* -------------------------------------------------------- seleção */
-  const handleHighlight = useCallback(async (color: HighlightColor) => {
-    if (!selection) return
-    await data.addHighlight({ anchorStart: selection.anchorStart, anchorEnd: selection.anchorEnd, text: selection.text, color })
-    clearPageSelection()
-    setSelection(null)
-  }, [selection, data, setSelection])
-
-  const handleNote = useCallback(async () => {
-    if (!selection) return
-    const note = window.prompt(t('notePrompt'), '') || ''
-    if (!note) return
-    await data.addHighlight({ anchorStart: selection.anchorStart, anchorEnd: selection.anchorEnd, text: selection.text, color: 'yellow', note })
-    clearPageSelection()
-    setSelection(null)
-  }, [selection, t, data, setSelection])
-
-  const handleDictionary = useCallback(async () => {
-    if (!selection) return
-    const word = selection.text.trim().split(/\s+/)[0].replace(/[^\p{L}'-]/gu, '')
-    if (!word) return
-    setDictionary(t('dictionaryLoading'))
-    try {
-      const language = (data.book?.language || '').toLowerCase().startsWith('en') ? 'en' : 'pt'
-      if (language === 'en') {
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`)
-        const payload = await response.json()
-        setDictionary(payload?.[0]?.meanings?.[0]?.definitions?.[0]?.definition || t('dictionaryUnavailable'))
-      } else {
-        const response = await fetch(`https://pt.wikipedia.org/w/api.php?action=opensearch&origin=*&format=json&limit=1&search=${encodeURIComponent(word)}`)
-        const payload = await response.json()
-        setDictionary(payload?.[2]?.[0] || t('dictionaryUnavailable'))
-      }
-    } catch {
-      setDictionary(t('dictionaryUnavailable'))
-    }
-  }, [selection, data.book?.language, t])
-
-  const handleShare = useCallback(async () => {
-    if (!selection) return
-    if (navigator.share) await navigator.share({ text: selection.text, title: data.book?.title })
-    else await navigator.clipboard.writeText(selection.text)
-  }, [selection, data.book?.title])
-
-  const handleCopy = useCallback(async () => {
-    if (!selection) return
-    await navigator.clipboard.writeText(selection.text)
-    setCopiedState(true)
-  }, [selection])
-
-  const dismissSelection = useCallback(() => {
-    clearPageSelection()
-    setSelection(null)
-    setCopiedState(false)
-    setDictionary('')
-  }, [setSelection])
 
   /* --------------------------------------------------------- scrubber */
   const scrubMax = Math.max(1, globalTotal - 1)
@@ -684,8 +576,8 @@ export function LiseurReader({ data }: { data: BookData }) {
             </button>
           </div>
           <div className="rv-navigate__list">
-            {searchResults.length ? searchResults.map((result, index) => (
-              <button key={`${result.chapterIndex}-${result.anchor}-${index}`} type="button" className="rv-navigate__hit" onClick={() => { jumpToResult(result); closeSearch() }}>
+            {results.length ? results.map((result, index) => (
+              <button key={`${result.chapterIndex}-${result.anchor}-${index}`} type="button" className="rv-navigate__hit" onClick={() => { jumpToResult(index); closeSearch() }}>
                 <div className="rv-navigate__meta">{result.chapterTitle}</div>
                 <div className="rv-navigate__text">
                   {result.before}
@@ -702,7 +594,7 @@ export function LiseurReader({ data }: { data: BookData }) {
       {selection && (
         <SelectionToolbar
           selection={selection}
-          copied={copiedState}
+          copied={copied}
           dictionary={dictionary}
           onCopy={handleCopy}
           onHighlight={handleHighlight}
