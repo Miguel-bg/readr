@@ -3,7 +3,8 @@ import path from 'node:path'
 
 const root = process.cwd()
 const componentDir = path.join(root, 'src/components/reader')
-const files = fs.readdirSync(componentDir).filter((name) => /\.[jt]sx?$/.test(name))
+// Recursive: the reader also has the v2 folder (TextStackReader, LiseurReader, useBookData) — previously it was skipped here.
+const files = fs.readdirSync(componentDir, { recursive: true }).filter((name) => /\.[jt]sx?$/.test(name))
 const keys = new Set()
 for (const file of files) {
   const source = fs.readFileSync(path.join(componentDir, file), 'utf8')
