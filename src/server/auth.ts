@@ -41,13 +41,18 @@ async function hmacKey(): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
 }
 
-export async function signSessionToken(userId: string): Promise<string> {
+export async function signSessionToken(userId: string, tokenVersion = 0): Promise<string> {
   const issuedAt = Math.floor(Date.now() / 1000)
-  const payload = { sub: userId, iat: issuedAt, exp: issuedAt + SESSION_TTL, iss: 'readr' }
+  const payload = { sub: userId, iat: issuedAt, exp: issuedAt + SESSION_TTL, iss: 'readr', tv: tokenVersion }
   const head = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
   const body = b64url(JSON.stringify(payload))
   const signature = await crypto.subtle.sign('HMAC', await hmacKey(), encoder.encode(`${head}.${body}`))
   return `${head}.${body}.${b64url(new Uint8Array(signature))}`
+}
+
+function authDb(): D1Database | null {
+  const env = getCloudflareContext().env as { DB?: D1Database }
+  return env.DB || null
 }
 
 export async function verifySessionToken(token: string): Promise<SessionUser | null> {
@@ -62,13 +67,21 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
   for (let i = 0; i < provided.length; i += 1) mismatch |= provided[i] ^ expectedBytes[i]
   if (mismatch !== 0) return null
 
-  let payload: { sub?: string; exp?: number }
+  let payload: { sub?: string; exp?: number; tv?: number }
   try {
     payload = JSON.parse(new TextDecoder().decode(base64UrlToBuffer(body)))
   } catch {
     return null
   }
   if (!payload.sub || !payload.exp || payload.exp * 1000 < Date.now()) return null
+
+  // Revogação: o token carrega a versão (tv) e só vale batendo com a atual do perfil.
+  // Logout soma 1 na versão — sessões salvas (7 dias) morrem no ato.
+  const db = authDb()
+  if (!db) return null
+  const row = await db.prepare('select token_version from profiles where id = ?').bind(payload.sub).first<{ token_version: number }>()
+  if (!row) return null
+  if ((Number(payload.tv) || 0) !== Number(row.token_version || 0)) return null
   return { id: payload.sub, email: '' }
 }
 

@@ -11,6 +11,7 @@ create table if not exists profiles (
   public_id text,
   avatar_url text,
   bio text,
+  token_version integer not null default 0,
   created_at text not null
 );
 create unique index if not exists profiles_email_unique on profiles (email);

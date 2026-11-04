@@ -24,7 +24,8 @@
     "identifier": "E-mail ou apelido",
     "createAndEnter": "Criar conta e entrar",
     "choosePassword": "Escolha uma senha",
-    "nicknameHint": "Será sua identidade pública e também poderá ser usado para entrar."
+    "nicknameHint": "Será sua identidade pública e também poderá ser usado para entrar.",
+    "noRecovery": "Perdeu a senha? A recuperação ainda não existe no Readr — sem ela, o acervo fica guardado para sempre nesta conta."
   },
   "reader": {
     "previous": "Página anterior",

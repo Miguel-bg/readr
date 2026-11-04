@@ -46,6 +46,7 @@ export function LoginForm() {
       {error && <p className="rounded-lg bg-coral/10 p-3 text-xs text-coral" role="alert">{error}</p>}
       <button className="primary-btn w-full" disabled={loading || !mounted}>{loading ? <LoaderCircle className="animate-spin" size={18} /> : <>{common('signIn')} <ArrowRight size={17} /></>}</button>
       <p className="text-center text-xs text-muted">Ainda não tem conta? <Link href="/auth/signup" className="font-semibold text-coral hover:underline">Criar conta</Link></p>
+      <p className="text-center text-[11px] text-muted">{t('noRecovery')}</p>
     </form>
   )
 }

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const hash = await hashClientKey(k, row.kdf_salt)
   if (!constantTimeEquals(hash, String(row.password_hash))) return rejeitarCredencial(lockBucket)
 
-  const token = await signSessionToken(String(row.id))
+  const token = await signSessionToken(String(row.id), Number(row.token_version || 0))
   const response = NextResponse.json({ ok: true, profile: profileOut(row) })
   return respondWithSession(response, token)
 }
