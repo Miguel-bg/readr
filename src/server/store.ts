@@ -255,8 +255,15 @@ export const handlers = {
     ]
     const fileId = fileUuidFromUrl(row.file_url)
     if (fileId) {
-      statements.push(db().prepare('delete from file_chunks where file_id = ?').bind(fileId))
-      statements.push(db().prepare('delete from files where id = ? and kind = ?').bind(fileId, 'book'))
+      // O arquivo só pode ser apagado se pertence ao dono do livro e é do tipo 'book'.
+      // Nunca confiar num file_url apontando para o arquivo de outra pessoa (IDOR destrutivo).
+      const fileResult = await db()
+        .prepare('delete from files where id = ? and owner_id = ? and kind = ?')
+        .bind(fileId, user.id, 'book')
+        .run()
+      if (fileResult.meta.changes) {
+        statements.push(db().prepare('delete from file_chunks where file_id = ?').bind(fileId))
+      }
     }
     await db().batch(statements)
   },
