@@ -272,7 +272,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run build` | Build the Next.js application |
 | `npm run preview` | Build and preview the Cloudflare Worker locally |
 | `npm run deploy` | Build with OpenNext and deploy to Cloudflare Workers |
-| `npm run lint` | Run the configured Next.js lint command |
+| `npm run lint` | Run ESLint (Next.js and TypeScript rules) |
 | `npm run check:reader-translations` | Check reader translation files |
 | `npm run cf-typegen` | Generate Cloudflare environment types |
 

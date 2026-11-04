@@ -1,0 +1,7 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "warn"
+  },
+  "ignorePatterns": [".next/", ".open-next/", "node_modules/", "wrangler/", "next-env.d.ts", "cloudflare-env.d.ts"]
+}
