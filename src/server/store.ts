@@ -64,6 +64,31 @@ export function fileUuidFromUrl(url?: string | null): string | null {
   return match ? match[1] : null
 }
 
+// Valida uma referência de arquivo vinda do cliente antes de gravar no banco.
+// Só aceita: /api/files/<uuid> que exista com owner_id = userId (e kind esperado),
+// ou data:image/... vinda do próprio parse no cliente.
+// Null/vazio significa "limpar" e é aceito. Qualquer outra coisa (URL externa,
+// arquivo de terceiro, path estranho) é rejeitada.
+async function validateFileRef(userId: string, url: unknown, kind?: 'book' | 'cover' | 'avatar'): Promise<string | null> {
+  if (url == null || url === '') return null
+  if (typeof url !== 'string') throw new Error('Referência de arquivo inválida.')
+  if (url.startsWith('/api/files/')) {
+    const fileId = fileUuidFromUrl(url)
+    if (!fileId) throw new Error('Referência de arquivo inválida.')
+    const where = kind ? 'and kind = ?' : ''
+    const params: unknown[] = [fileId, userId]
+    if (kind) params.push(kind)
+    const row = await db().prepare(`select id from files where id = ? and owner_id = ? ${where}`).bind(...params).first()
+    if (!row) throw new Error('O arquivo enviado não está na sua conta.')
+    return url
+  }
+  if (/^data:image\/(png|jpeg|webp|gif);base64,/.test(url)) {
+    if (url.length > 1_400_000) throw new Error('Imagem embutida muito grande (limite ~1 MB).')
+    return url
+  }
+  throw new Error('Formato de capa/avatar não permitido. Envie o arquivo pelo upload do Readr.')
+}
+
 /* -------- mappers -------- */
 
 export function profileOut(row: Record<string, any>) {
@@ -212,11 +237,13 @@ export const handlers = {
   async book_create(args: any, user: SessionUser) {
     const data = args.book ?? args
     const bookId = crypto.randomUUID()
+    const coverUrl = await validateFileRef(user.id, data.cover_url, 'cover')
+    const fileUrl = await validateFileRef(user.id, data.file_url, 'book')
     await db().prepare(`insert into books (id, user_id, title, author, description, cover_url, format, file_url, total_pages, genre, language, published_year, publisher, tags, reads_count, created_at)
       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
       .bind(
         bookId, user.id, String(data.title || 'Livro sem título'), data.author || null, data.description || null,
-        data.cover_url || null, data.format || null, data.file_url || null, Math.max(1, Number(data.total_pages || 1)),
+        coverUrl, data.format || null, fileUrl, Math.max(1, Number(data.total_pages || 1)),
         data.genre || null, data.language || 'Português', data.published_year ?? null, data.publisher || null,
         JSON.stringify(Array.isArray(data.tags) ? data.tags : []), now(),
       ).run()
@@ -234,7 +261,7 @@ export const handlers = {
     if (changes.title != null) push('title', String(changes.title))
     if (changes.author != null) push('author', changes.author)
     if (changes.description != null) push('description', changes.description)
-    if (changes.cover_url !== undefined) push('cover_url', changes.cover_url)
+    if (changes.cover_url !== undefined) push('cover_url', await validateFileRef(user.id, changes.cover_url, 'cover'))
     if (changes.genre != null) push('genre', changes.genre)
     if (changes.language != null) push('language', changes.language)
     if (changes.published_year !== undefined) push('published_year', changes.published_year)
@@ -299,11 +326,12 @@ export const handlers = {
   async created_create(args: any, user: SessionUser) {
     const { chapters = [], ...metadata } = args
     const bookId = crypto.randomUUID()
+    const coverUrl = await validateFileRef(user.id, metadata.cover_url, 'cover')
     const statements = [
       db().prepare(`insert into created_books (id, user_id, title, author, description, cover_url, status, genre, language, published_year, publisher, tags, reads_count, created_at)
         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
         .bind(bookId, user.id, String(metadata.title || 'Livro sem título'), metadata.author || null, metadata.description || null,
-          metadata.cover_url || null, metadata.status === 'published' ? 'published' : 'draft', metadata.genre || null, metadata.language || 'Português',
+          coverUrl, metadata.status === 'published' ? 'published' : 'draft', metadata.genre || null, metadata.language || 'Português',
           metadata.published_year ?? null, metadata.publisher || null, JSON.stringify(Array.isArray(metadata.tags) ? metadata.tags : []), now()),
       ...chapters.map((chapter: Record<string, any>, index: number) =>
         db().prepare('insert into chapters (id, created_book_id, title, content, order_index) values (?, ?, ?, ?, ?)')
@@ -322,7 +350,8 @@ export const handlers = {
     const updates = [
       db().prepare(`update created_books set title = ?, author = ?, description = ?, cover_url = ?, status = ?, genre = ?, language = ?, published_year = ?, publisher = ?, tags = ? where id = ? and user_id = ?`)
         .bind(
-          String(metadata.title || 'Livro sem título'), metadata.author || null, metadata.description || null, metadata.cover_url || null,
+          String(metadata.title || 'Livro sem título'), metadata.author || null, metadata.description || null,
+          await validateFileRef(user.id, metadata.cover_url, 'cover'),
           metadata.status === 'published' ? 'published' : 'draft', metadata.genre || null, metadata.language || 'Português',
           metadata.published_year ?? null, metadata.publisher || null, JSON.stringify(Array.isArray(metadata.tags) ? metadata.tags : []),
           args.bookId, user.id,
@@ -468,7 +497,7 @@ export const handlers = {
     const params: unknown[] = []
     if (changes.display_name != null) { fields.push('display_name = ?'); params.push(String(changes.display_name).slice(0, 80)) }
     if (changes.bio != null) { fields.push('bio = ?'); params.push(String(changes.bio).slice(0, 600)) }
-    if (changes.avatar_url !== undefined) { fields.push('avatar_url = ?'); params.push(changes.avatar_url) }
+    if (changes.avatar_url !== undefined) { fields.push('avatar_url = ?'); params.push(await validateFileRef(user.id, changes.avatar_url, 'avatar')) }
     if (!fields.length) return profileOut((await db().prepare('select * from profiles where id = ?').bind(user.id).first<Record<string, any>>()) || {})
     params.push(user.id)
     await db().prepare(`update profiles set ${fields.join(', ')} where id = ?`).bind(...params).run()
