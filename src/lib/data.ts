@@ -34,6 +34,7 @@ function importedBookOf(row: Record<string, any>): Book {
   return {
     id: row.id, user_id: row.user_id, title: row.title || '', author: row.author || '', description: row.description || '', cover_url: row.cover_url,
     format: row.format, file_url: row.file_url, total_pages: Math.max(1, row.total_pages || 1), source: 'imported', content: Array.isArray(row.content) ? row.content : [],
+    access: row.access === 'other' ? 'other' : row.access === 'owner' ? 'owner' : undefined,
     genre: row.genre || '', language: row.language || 'Português', published_year: row.published_year, publisher: row.publisher || '', tags: row.tags || [],
     reads_count: Number(row.reads_count || 0), created_at: row.created_at,
   }

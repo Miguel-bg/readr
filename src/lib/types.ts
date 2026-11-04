@@ -15,6 +15,8 @@ export interface Book {
   format: BookFormat
   total_pages: number
   source: BookSource
+  /** 'other' = o livro é pessoal de outro leitor (o content não sai do servidor). */
+  access?: 'owner' | 'other'
   genre?: string
   language?: string
   published_year?: number | null

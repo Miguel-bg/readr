@@ -436,7 +436,7 @@ export function LiseurReader({ data }: { data: BookData }) {
         {!data.loading && data.error && (
           <div className="rv-error">
             <h2>{data.error}</h2>
-            <button type="button" className="rv-error__btn" onClick={data.reload}> {t('retry')}</button>
+            {!data.fatal && <button type="button" className="rv-error__btn" onClick={data.reload}> {t('retry')}</button>}
           </div>
         )}
         {!data.loading && !data.error && chapter && (

@@ -36,6 +36,8 @@ export interface BookData {
   savedPercent: number
   loading: boolean
   error: string
+  /** true quando o erro não se resolve tentando de novo (ex.: livro pessoal de outro leitor). */
+  fatal: boolean
   saveError: string
   reload: () => void
   saveProgress: (anchor: number, chapterIndex: number, percent: number) => void
@@ -61,6 +63,7 @@ export function useBookData(bookId: string): BookData {
   const [savedPercent, setSavedPercent] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [fatal, setFatal] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -74,6 +77,7 @@ export function useBookData(bookId: string): BookData {
     async function load() {
       setLoading(true)
       setError('')
+      setFatal(false)
       setSaveError('')
       try {
         const currentProfile = await getCurrentProfile()
@@ -85,6 +89,13 @@ export function useBookData(bookId: string): BookData {
         const loadedBook = source === 'created' ? await getCreatedBook(bookId) : await getImportedBook(bookId)
         if (!active) return
         if (!loadedBook) throw new Error('Livro não encontrado.')
+        // Livro importado é pessoal do autor: sem cadeia de retries, mensagem direta.
+        if (source !== 'created' && loadedBook.access === 'other') {
+          if (!active) return
+          setError(t('personalBook'))
+          setFatal(true)
+          return
+        }
         const loadedChapters = source === 'created'
           ? await new CreatedBookSource(loadedBook, ((loadedBook as CreatedBook).chapters || []) as never).load()
           : await new ImportedBookSource(loadedBook).load()
@@ -230,6 +241,7 @@ export function useBookData(bookId: string): BookData {
     savedPercent,
     loading,
     error,
+    fatal,
     saveError,
     reload,
     saveProgress,
@@ -237,5 +249,5 @@ export function useBookData(bookId: string): BookData {
     toggleBookmarkAt,
     addHighlight,
     removeHighlight,
-  }), [book, profile, chapters, bookmarks, highlights, chapterStarts, chapterWordCounts, totalWords, savedAnchor, savedPercent, loading, error, saveError, reload, saveProgress, flushProgress, toggleBookmarkAt, addHighlight, removeHighlight])
+  }), [book, profile, chapters, bookmarks, highlights, chapterStarts, chapterWordCounts, totalWords, savedAnchor, savedPercent, loading, error, fatal, saveError, reload, saveProgress, flushProgress, toggleBookmarkAt, addHighlight, removeHighlight])
 }

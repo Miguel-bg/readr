@@ -228,9 +228,10 @@ export const handlers = {
     const row = await db().prepare('select * from books where id = ?').bind(String(args.bookId)).first<Record<string, any>>()
     if (!row) return null
     const book = importedBookOut(row)
-    if (user && user.id === row.user_id) {
-      ;(book as any).content = await loadContent(row.id)
-    }
+    const isOwner = Boolean(user && user.id === row.user_id)
+    // O content só sai para o dono; para o resto, é uma marca HONESTA de que o livro é pessoal.
+    ;(book as any).content = isOwner ? await loadContent(row.id) : []
+    ;(book as any).access = isOwner ? 'owner' : 'other'
     return book
   },
 
