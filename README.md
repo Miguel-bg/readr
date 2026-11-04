@@ -11,8 +11,6 @@ Read with a desktop experience inspired by [TextStack](https://github.com/mrvidu
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js&style=for-the-badge)](https://nextjs.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020?logo=cloudflare&logoColor=white&style=for-the-badge)](https://workers.cloudflare.com/)
 
-**English** · [Português (Brasil)](README.pt-BR.md)
-
 [Try the live app](https://readr.miguxl.workers.dev/) · [Report an issue](https://github.com/Miguel-bg/readr/issues) · [Source code](https://github.com/Miguel-bg/readr)
 
 </div>
