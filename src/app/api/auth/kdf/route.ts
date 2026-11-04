@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { db } from '@/server/store'
+import { clientIp, giveCapacity } from '@/server/ratelimit'
 
 // Devolve o salt PBKDF2 do usuário para o navegador derivar a chave de senha.
 // Conta inexistente devolve salt "isca" derivada da própria entrada (evita enumeração de contas).
@@ -10,6 +11,10 @@ function hex(buffer: ArrayBuffer): string {
 }
 
 export async function POST(request: Request) {
+  // Freio para harvesting de salts em massa: o login legítimo usa 1 kdf por tentativa.
+  if (!(await giveCapacity(`kdf:${clientIp(request)}`, 90))) {
+    return NextResponse.json({ error: 'Muitas tentativas. Aguarde alguns minutos e tente de novo.' }, { status: 429 })
+  }
   const body = await request.json().catch(() => ({}) as Record<string, unknown>)
   const identifier = String(body.identifier ?? '').trim().toLowerCase().replace(/^@/, '')
   if (!identifier) return NextResponse.json({ error: 'Informe seu e-mail ou apelido.' }, { status: 400 })

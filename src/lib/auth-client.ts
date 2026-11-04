@@ -34,7 +34,7 @@ export async function signUp(displayName: string, nickname: string, email: strin
   const normalizedName = displayName.trim()
   const normalizedNickname = normalizeIdentifier(nickname)
   if (!normalizedName || !normalizedNickname || !normalizedEmail) throw new Error('Preencha nome, apelido e e-mail.')
-  if (!password) throw new Error('Escolha uma senha.')
+  if (password.length < 8) throw new Error('A senha precisa de pelo menos 8 caracteres.')
 
   const salt = toHex(crypto.getRandomValues(new Uint8Array(16)))
   const k = await deriveKey(password, salt)
@@ -42,7 +42,7 @@ export async function signUp(displayName: string, nickname: string, email: strin
   const response = await fetch('/api/auth/signup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName: normalizedName, nickname: normalizedNickname, email: normalizedEmail, salt, k }),
+    body: JSON.stringify({ displayName: normalizedName, nickname: normalizedNickname, email: normalizedEmail, salt, k, pwLength: password.length }),
   })
   const result = await response.json() as { ok?: boolean; error?: string }
   if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível criar a conta.')

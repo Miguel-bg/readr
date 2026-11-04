@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, generatePublicId } from '@/server/store'
 import { hashClientKey, signSessionToken, respondWithSession } from '@/server/auth'
 import { profileOut } from '@/server/store'
+import { clientIp, giveCapacity } from '@/server/ratelimit'
 
 const NICKNAME_PATTERN = /^[a-z0-9._-]{3,24}$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -18,9 +19,15 @@ export async function POST(request: Request) {
   const salt = String(body.salt ?? '')
   const k = String(body.k ?? '')
 
+  // Freio anti-farming de contas: 8 cadastros por IP dentro da janela de 15 min.
+  if (!(await giveCapacity(`signup:${clientIp(request)}`, 8))) {
+    return unauthorized('Muitas contas criadas a partir deste acesso. Aguarde alguns minutos.', 429)
+  }
+
   if (displayName.length < 2) return unauthorized('Informe seu nome de exibição (mínimo de 2 letras).')
   if (!NICKNAME_PATTERN.test(nickname)) return unauthorized('Apelido inválido: use 3 a 24 caracteres entre letras, números, ponto, hífen ou sublinhado.')
   if (!EMAIL_PATTERN.test(email)) return unauthorized('Informe um e-mail válido.')
+  if (Number(body.pwLength ?? 0) < 8) return unauthorized('A senha precisa de pelo menos 8 caracteres.')
   if (!/^[a-f0-9]{32,64}$/.test(salt)) return unauthorized('Não foi possível iniciar o cadastro. Recarregue a página.')
   if (!/^[a-f0-9]{64}$/.test(k)) return unauthorized('Não foi possível iniciar o cadastro. Recarregue a página.')
 

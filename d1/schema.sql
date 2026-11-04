@@ -200,3 +200,10 @@ create table if not exists file_chunks (
   data blob not null,
   primary key (file_id, chunk_index)
 );
+
+create table if not exists rate_limits (
+  key text primary key,
+  window_start integer not null,
+  hits integer not null default 0
+);
+
