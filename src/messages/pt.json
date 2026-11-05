@@ -109,6 +109,7 @@
     "light": "Claro",
     "dark": "Escuro",
     "language": "Idioma da interface",
+    "languageScope": "Traduzido até aqui: leitor, entrar/criar conta, navegação, ajustes e o seu perfil. As demais páginas seguem em português.",
     "readerDefaults": "Padrões do leitor",
     "deleteAccount": "Excluir conta",
     "deleteDescription": "Exclui permanentemente sua conta, livros, importações, avaliações e progresso.",
