@@ -52,6 +52,47 @@ async function loadContent(bookId: string): Promise<Book['content']> {
   return Array.isArray(parsed) ? parsed : []
 }
 
+/** Item 13 (banca): allowlist de src de imagens no content gravado. Imagens
+ * permitidas: data:image/... produzidos pelo parser (docx/epub/pdf) e
+ * /api/files/<uuid> DESTE usuário (futuras inserções do editor). Qualquer outra
+ * origem (URL externa — pixel de rastreamento de leitura; blob:; javascript:)
+ * faz o bloco de imagem SER DESCARTADO, mas o resto do livro é salvo. */
+function isImageBlock(value: unknown): value is { type: 'image'; src: unknown } {
+  return typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'image'
+}
+
+async function imageSrcAllowed(userId: string, src: unknown): Promise<boolean> {
+  if (typeof src !== 'string') return false
+  if (/^data:image\/(?:png|jpeg|webp|gif|svg\+xml)(?:;base64|,)/.test(src)) return true
+  if (src.startsWith('/api/files/')) {
+    const uuid = fileUuidFromUrl(src)
+    if (!uuid) return false
+    const row = await db().prepare('select id from files where id = ? and owner_id = ?').bind(uuid, userId).first()
+    return Boolean(row)
+  }
+  return false
+}
+
+async function sanitizeContentImages(userId: string, node: unknown): Promise<unknown> {
+  if (Array.isArray(node)) {
+    const out: unknown[] = []
+    for (const item of node) {
+      if (isImageBlock(item)) {
+        if (await imageSrcAllowed(userId, item.src)) out.push(item)
+        continue
+      }
+      out.push(await sanitizeContentImages(userId, item))
+    }
+    return out
+  }
+  if (node && typeof node === 'object') {
+    const copy: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(node)) copy[key] = await sanitizeContentImages(userId, value)
+    return copy
+  }
+  return node
+}
+
 async function saveContent(bookId: string, content: unknown) {
   const text = JSON.stringify(content ?? [])
   const chunks = splitIntoChunks(text)
@@ -255,7 +296,7 @@ export const handlers = {
         data.genre || null, data.language || 'Português', data.published_year ?? null, data.publisher || null,
         JSON.stringify(Array.isArray(data.tags) ? data.tags : []), now(),
       ).run()
-    await saveContent(bookId, data.content ?? [])
+    await saveContent(bookId, await sanitizeContentImages(user.id, data.content ?? []))
     await db().prepare('insert into activities (id, user_id, activity_type, book_id, book_source, metadata, created_at) values (?, ?, ?, ?, ?, ?, ?)')
       .bind(crypto.randomUUID(), user.id, 'imported_book', bookId, 'imported', JSON.stringify({ title: data.title }), now()).run()
     return bookId
