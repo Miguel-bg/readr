@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { jwtSecret, KDF_DECOY_FALLBACK } from '@/server/auth'
 import { db } from '@/server/store'
 import { clientIp, giveCapacity } from '@/server/ratelimit'
 
@@ -23,9 +22,11 @@ export async function POST(request: Request) {
     .bind(identifier, identifier).first<{ kdf_salt: string }>()
   if (row) return NextResponse.json({ salt: row.kdf_salt })
 
-  // Fallback unificado: o salt-isca nunca quebra o login (não é segredo — só
-  // deriva um salt estável para contas inexistentes). jwtSecret() já auditou.
-  const secret = jwtSecret() || KDF_DECOY_FALLBACK
-  const salt = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`readr-decoy|${secret}|${identifier}`))).slice(0, 32)
-  return NextResponse.json({ salt })
+  // Item 35 (banca): a isca tinha derivação própria, sem misturar com o
+  // JWT_SECRET — a isca é SERVIDA em toda busca de conta inexistente, não
+  // pode ser derivada de um segredo que também assina sessões. A isca é
+  // pública e determinística; o freio anti-enumeração é o rate limit
+  // (kdf:90/IP), que siga igual.
+  const decoySalt = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`readr-kdf-decoy-v2|${identifier}`))).slice(0, 32)
+  return NextResponse.json({ salt: decoySalt })
 }

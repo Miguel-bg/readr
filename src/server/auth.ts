@@ -44,14 +44,11 @@ export function jwtSecret(): string | null {
   const secret = (env.JWT_SECRET || '').trim() || null
   if (!secretAudited) {
     secretAudited = true
-    if (!secret) console.error('JWT_SECRET ausente (wrangler secret put JWT_SECRET): sessões vão falhar e o salt-isca usa o fallback público.')
+    if (!secret) console.error('JWT_SECRET ausente (wrangler secret put JWT_SECRET): as sessões não vão validar.')
     else if (secret.length < 32) console.error(`JWT_SECRET tem ${secret.length} bytes; recomendado >= 32. Rotacione com wrangler secret put JWT_SECRET.`)
   }
   return secret
 }
-
-/** Fallback público do salt-isca (NÃO segredo: nunca deixa login quebrar em preview). */
-export const KDF_DECOY_FALLBACK = 'readr'
 
 async function hmacKey(): Promise<CryptoKey> {
   const secret = jwtSecret()
