@@ -747,10 +747,26 @@ export async function dispatch(op: string, rawArgs: unknown, user: SessionUser |
   return handler(args, user)
 }
 
+/**
+ * Item 32 (banca): Math.random não é criptográfico — o public_id é a
+ * identidade pública do leitor e entra no sort/casamento; a fonte certa
+ * é crypto.getRandomValues (Workers), como o crypto.randomUUID que o
+ * resto do código já usa.
+ */
+function publicIdCandidate(): string {
+  const out = new Uint32Array(1)
+  for (;;) {
+    crypto.getRandomValues(out)
+    // Rejeição amostral: descarta o rabo (2^32 não divide por 10^8) para
+    // não enviesar a primeira faixa de dígitos. Repetição média menor que 2 laços.
+    if (out[0] < 4_200_000_000) return String(out[0] % 100_000_000).padStart(8, '0')
+  }
+}
+
 /** Gera o ID público de 8 dígitos sem colisão (port do generate_reader_id). */
 export async function generatePublicId(): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const candidate = String(Math.floor(Math.random() * 100_000_000)).padStart(8, '0')
+    const candidate = publicIdCandidate()
     const existing = await db().prepare('select 1 as present from profiles where public_id = ?').bind(candidate).first()
     if (!existing) return candidate
   }
