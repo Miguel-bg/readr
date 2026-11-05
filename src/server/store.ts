@@ -3,6 +3,7 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { randomHex } from './auth'
 import type { SessionUser } from './auth'
+import { giveCapacity } from './ratelimit'
 import type { RpcArgs, Row } from '@/lib/rpc-contract'
 import type { Book } from '@/lib/types'
 import { countWordsInText } from '@/lib/reader/blocks'
@@ -469,9 +470,15 @@ export const handlers = {
   async review_save(args: RpcArgs['review_save'], user: SessionUser) {
     const rating = Math.min(5, Math.max(1, Math.round(Number(args.rating) || 0)))
     if (rating < 1) throw new Error('Avaliação precisa ir de 1 a 5 estrelas.')
+    // Item 15 (banca): review é conteúdo PÚBLICO — comprimento travado (2.000)
+    // e limite de uso por usuário (janela de 15 min, mesmo bucket do limiter do D1).
+    const content = String(args.content || '').slice(0, 2000)
+    if (!(await giveCapacity(`review:${user.id}`, 15))) {
+      throw new Error('Muitas avaliações em pouco tempo. Aguarde alguns minutos e tente de novo.')
+    }
     await db().prepare(`insert into reviews (id, user_id, book_id, book_source, rating, content, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)
       on conflict (user_id, book_id, book_source) do update set rating = excluded.rating, content = excluded.content, updated_at = excluded.updated_at`)
-      .bind(crypto.randomUUID(), user.id, args.bookId, args.bookSource, rating, String(args.content || ''), now(), now()).run()
+      .bind(crypto.randomUUID(), user.id, args.bookId, args.bookSource, rating, content, now(), now()).run()
     return true
   },
 
@@ -631,7 +638,8 @@ export const handlers = {
       return false
     }
     await db().prepare('insert into bookmarks (id, user_id, book_id, book_source, page_number, anchor_offset, note, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), user.id, String(args.bookId), String(args.bookSource), Number(args.pageNumber) || 0, Number(args.anchorOffset || 0), args.note || null, now()).run()
+      .bind(crypto.randomUUID(), user.id, String(args.bookId), String(args.bookSource), Number(args.pageNumber) || 0, Number(args.anchorOffset || 0),
+        args.note ? String(args.note).slice(0, 1000) : null, now()).run()
     return true
   },
 
@@ -643,18 +651,20 @@ export const handlers = {
 
   async highlights_create(args: RpcArgs['highlights_create'], user: SessionUser) {
     const color = args.color && ['yellow', 'green', 'blue', 'pink'].includes(args.color) ? args.color : 'yellow'
+    const note = args.note ? String(args.note).slice(0, 1000) : null
     const id = crypto.randomUUID()
     await db().prepare(`insert into highlights (id, user_id, book_id, book_source, anchor_start, anchor_end, selected_text, color, note, created_at, updated_at)
       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, user.id, String(args.bookId), String(args.bookSource), Number(args.anchorStart) || 0, Number(args.anchorEnd) || 0,
-        String(args.selectedText || '').slice(0, 2000), color, args.note || null, now(), now()).run()
+        String(args.selectedText || '').slice(0, 2000), color, note, now(), now()).run()
     const row = await db().prepare('select * from highlights where id = ?').bind(id).first()
     return row
   },
 
   async highlights_update_note(args: RpcArgs['highlights_update_note'], user: SessionUser) {
+    const note = args.note ? String(args.note).slice(0, 1000) : null
     const result = await db().prepare('update highlights set note = ?, updated_at = ? where id = ? and user_id = ?')
-      .bind(args.note ?? null, now(), String(args.id), user.id).run()
+      .bind(note, now(), String(args.id), user.id).run()
     if (!result.meta.changes) throw new Error('Destaque não encontrado.')
     return true
   },
