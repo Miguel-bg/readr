@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     db().prepare('select id from profiles where lower(nickname) = ?').bind(nickname).first(),
   ])
   if (emailTaken) return unauthorized('Este e-mail já tem uma conta no Readr.', 409)
-  if (nicknameTaken) return unauthorized('Esse apelido já está em uso. Escolhe outro.', 409)
+  if (nicknameTaken) return unauthorized('Esse apelido já está em uso. Escolha outro.', 409)
 
   const id = crypto.randomUUID()
   const publicId = await generatePublicId()
