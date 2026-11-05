@@ -3,7 +3,7 @@
 import JSZip from 'jszip'
 import mammoth from 'mammoth'
 import type { BookFormat, ReaderBlock, ReaderChapter } from '@/lib/types'
-import { htmlDocumentToBlocks, normalizeReaderText, readerBlocksText } from './blocks'
+import { countReaderWords, htmlDocumentToBlocks, normalizeReaderText } from './blocks'
 
 export interface ParsedBook {
   title: string
@@ -287,7 +287,7 @@ async function parsePdf(file: File) {
     try {
       const operators = await page.getOperatorList()
       const imageOps = operators.fnArray.filter((operation: number) => operation === pdfjs.OPS.paintImageXObject || operation === pdfjs.OPS.paintInlineImageXObject).length
-      if (imageOps > 0 && readerBlocksText(blocks).split(/\s+/).length < 80) {
+      if (imageOps > 0 && countReaderWords(blocks) < 80) {
         const image = await renderPdfPage(page, 1.5)
         const src = image
           ? bytesToDataUrl(new Uint8Array(await image.arrayBuffer()), image.type)

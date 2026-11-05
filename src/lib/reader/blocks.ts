@@ -19,8 +19,19 @@ export function readerBlocksText(blocks: ReaderBlock[]) {
   return blocks.map(readerBlockText).filter(Boolean).join('\n\n')
 }
 
+/** Lista de "palavras" de um texto (split por espaços, vazias filtradas). Fonte canônica. */
+export function wordsInText(text: string) {
+  return text.split(/\s+/).filter(Boolean)
+}
+
+/** Número de palavras de um texto — pode parecer trivial, mas toda contagem de
+ * palavras do app DEVE passar por aqui para os números baterem entre si. */
+export function countWordsInText(text: string) {
+  return wordsInText(text).length
+}
+
 export function countReaderWords(blocks: ReaderBlock[]) {
-  return readerBlocksText(blocks).split(/\s+/).filter(Boolean).length
+  return countWordsInText(readerBlocksText(blocks))
 }
 
 function textWithBreaks(element: Element) {

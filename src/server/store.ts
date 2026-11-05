@@ -5,6 +5,7 @@ import { randomHex } from './auth'
 import type { SessionUser } from './auth'
 import type { RpcArgs, Row } from '@/lib/rpc-contract'
 import type { Book } from '@/lib/types'
+import { countWordsInText } from '@/lib/reader/blocks'
 
 export function db() {
   const env = getCloudflareContext().env as { DB?: D1Database }
@@ -130,7 +131,7 @@ export function importedBookOut(row: Row) {
 
 export function createdBookOut(row: Row, chapters: Row[] = []) {
   const sorted = [...chapters].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-  const words = sorted.reduce((sum, chapter) => sum + String(chapter.content || '').trim().split(/\s+/).filter(Boolean).length, 0)
+  const words = sorted.reduce((sum, chapter) => sum + countWordsInText(String(chapter.content || '')), 0)
   return {
     ...importedBookOut(row),
     source: 'created',

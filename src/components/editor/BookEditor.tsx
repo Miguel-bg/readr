@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ChevronDown, ChevronUp, ImagePlus, LoaderCircle, Plus, Save, Trash2 } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { BookCover } from '@/components/books/BookCover'
+import { countWordsInText } from '@/lib/reader/blocks'
 import { createBook, getCreatedBook, getCurrentProfile, updateBook, uploadCover } from '@/lib/data'
 import type { Chapter, CreateBookPayload, CreatedBook, UserProfile } from '@/lib/types'
 
@@ -112,7 +113,7 @@ export function BookEditor({ bookId }: { bookId?: string }) {
           </aside>
 
           <article className="panel min-h-[610px] overflow-hidden bg-[#fcfaf4]">
-            <header className="flex items-center border-b border-line p-3"><span className="text-[10px] text-muted">Texto do capítulo</span><span className="ml-auto text-[9px] text-muted">{chapters[active]?.content.trim().split(/\s+/).filter(Boolean).length || 0} palavras</span></header>
+            <header className="flex items-center border-b border-line p-3"><span className="text-[10px] text-muted">Texto do capítulo</span><span className="ml-auto text-[9px] text-muted">{countWordsInText(chapters[active]?.content || '')} palavras</span></header>
             <section className="mx-auto max-w-2xl p-7 sm:p-12">
               <input className="w-full border-none bg-transparent font-serif text-3xl outline-none placeholder:text-muted/50" value={chapters[active]?.title || ''} onChange={(e) => updateChapter('title', e.target.value)} placeholder="Título do capítulo" />
               <textarea className="mt-8 min-h-[430px] w-full resize-none border-none bg-transparent font-serif text-[17px] leading-[1.8] outline-none placeholder:text-muted/45" value={chapters[active]?.content || ''} onChange={(e) => updateChapter('content', e.target.value)} placeholder="Era uma vez..." />

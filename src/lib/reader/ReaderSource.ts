@@ -1,5 +1,5 @@
 import type { Book, Chapter, ReaderBlock, ReaderChapter, ReaderPage } from '@/lib/types'
-import { countReaderWords, legacyHtmlToChapter, readerBlocksText } from './blocks'
+import { countReaderWords, legacyHtmlToChapter, readerBlocksText, wordsInText } from './blocks'
 
 export interface ReaderSource {
   book: Book
@@ -11,7 +11,7 @@ export function readerPageText(page: Pick<ReaderPage, 'blocks'>) {
 }
 
 function splitTextBlock(block: Extract<ReaderBlock, { text: string }>, maximum: number) {
-  const words = block.text.split(/\s+/).filter(Boolean)
+  const words = wordsInText(block.text)
   if (words.length <= maximum) return [block]
   const fragments: typeof block[] = []
   for (let index = 0; index < words.length; index += maximum) {
@@ -53,7 +53,6 @@ export function repaginateReaderContent(source: ReaderChapter[], wordsPerPage: n
       const block: ReaderBlock = originalBlock.type === 'paragraph'
         ? { ...originalBlock, dropCap: originalBlock.dropCap ?? blockIndex === chapter.blocks.findIndex((item) => item.type === 'paragraph') }
         : originalBlock
-      const wordCount = countReaderWords([block])
       if (block.type === 'image') {
         if (pageBlocks.length) flush()
         pageBlocks.push(block)

@@ -3,6 +3,7 @@
 // As assinaturas são as mesmas da versão anterior para não reescrever os componentes.
 import { parseBookFile } from '@/lib/reader/parseBook'
 import { CreatedBookSource, ImportedBookSource, readerPageText, repaginateReaderContent } from '@/lib/reader/ReaderSource'
+import { countWordsInText } from '@/lib/reader/blocks'
 import type { RpcArgs, RpcNoArgs, RpcResults, Row } from '@/lib/rpc-contract'
 import type { Book, BookSource, CreateBookPayload, CreatedBook, HighlightColor, ReaderHighlight, ReadingProgress, ShelfStatus, UserProfile } from '@/lib/types'
 
@@ -49,7 +50,7 @@ function importedBookOf(row: Row): Book {
 
 function createdBookOf(row: Row): CreatedBook {
   const chapters = Array.isArray(row.chapters) ? [...row.chapters].sort((a, b) => a.order_index - b.order_index) : []
-  const words = chapters.reduce((sum, chapter) => sum + String(chapter.content || '').trim().split(/\s+/).filter(Boolean).length, 0)
+  const words = chapters.reduce((sum, chapter) => sum + countWordsInText(String(chapter.content || '')), 0)
   return {
     ...row, title: row.title || '', author: row.author || '', description: row.description || '', chapters, format: 'readr', source: 'created',
     total_pages: Math.max(1, row.total_pages || Math.ceil(words / 280)), reads_count: Number(row.reads_count || 0), tags: row.tags || [],
