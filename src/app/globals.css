@@ -103,10 +103,6 @@ a { color: inherit; text-decoration: none; }
 .reader-shell.is-chrome-hidden .reader-stage { inset:0; padding:4px; }
 .reader-shell.is-chrome-hidden .reader-arrow { opacity:0; pointer-events:none; }
 .reader-status { display:grid; place-items:center; gap:14px; color:var(--reader-ink); font-size:13px; }
-.pageflip-frame,.reader-single-page { position:relative; flex:none; filter:drop-shadow(0 2px 3px rgba(40,30,15,.10)) drop-shadow(0 8px 14px rgba(40,30,15,.06)); }
-.pageflip-frame::before { content:""; position:absolute; z-index:60; pointer-events:none; inset:0; background:radial-gradient(circle at var(--reader-curl-x,92%) 50%,rgba(25,18,10,.25) 0,rgba(25,18,10,.09) 8%,transparent 27%); mix-blend-mode:multiply; opacity:.36; transition:background-position .4s ease; }
-.pageflip-frame.is-spread::after { content:""; position:absolute; z-index:61; pointer-events:none; left:50%; top:.5%; bottom:.5%; width:16px; transform:translateX(-50%); background:linear-gradient(90deg,transparent,rgba(35,25,14,.13) 38%,rgba(255,255,255,.1) 52%,rgba(35,25,14,.11) 68%,transparent); mix-blend-mode:multiply; }
-.pageflip-book { margin:0 auto !important; }
 .reader-page { position:relative; height:100%; overflow:hidden; color:var(--reader-ink); background-color:var(--reader-paper); background-image:radial-gradient(ellipse at 24% 13%,rgba(255,255,255,.24),transparent 40%),repeating-linear-gradient(7deg,var(--reader-fiber) 0 1px,transparent 1px 7px),repeating-linear-gradient(93deg,rgba(83,63,36,.012) 0 1px,transparent 1px 13px),linear-gradient(100deg,var(--reader-paper),color-mix(in srgb,var(--reader-paper) 97%,var(--reader-paper-edge))); box-shadow:inset 0 0 18px rgba(69,51,28,.035),inset -2px 0 4px rgba(74,51,25,.035); }
 .reader-page::before { content:""; position:absolute; z-index:0; inset:8% 9%; pointer-events:none; background:repeating-linear-gradient(180deg,transparent 0 7px,rgba(50,43,35,var(--reader-show-through,.025)) 7px 8px,transparent 8px 15px); transform:scaleX(-1); filter:blur(.8px); }
 .reader-theme-dark.reader-page::before { display:none; }
