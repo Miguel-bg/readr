@@ -551,8 +551,10 @@ export const handlers = {
       const { results } = await db().prepare('select * from profiles order by created_at desc limit 30').all<Row>()
       return (results || []).map(profileOut)
     }
-    const like = `%${query}%`
-    const { results } = await db().prepare('select * from profiles where display_name like ? or nickname like ? or public_id = ? order by created_at desc limit 30')
+    // Item 33 (banca): % e _ são curingas do LIKE — sem massacrá-los, um
+    // apelido com _ casa com qualquer coisa e "%" busca tudo.
+    const like = `%${query.replace(/[\\%_]/g, (match) => `\\${match}`)}%`
+    const { results } = await db().prepare("select * from profiles where display_name like ? escape '\\' or nickname like ? escape '\\' or public_id = ? order by created_at desc limit 30")
       .bind(like, like, query).all<Row>()
     return (results || []).map(profileOut)
   },
