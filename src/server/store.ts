@@ -631,14 +631,18 @@ export const handlers = {
   },
 
   async bookmarks_toggle(args: RpcArgs['bookmarks_toggle'], user: SessionUser) {
-    const existing = await db().prepare('select id from bookmarks where user_id = ? and book_id = ? and book_source = ? and page_number = ?')
-      .bind(user.id, String(args.bookId), String(args.bookSource), Number(args.pageNumber) || 0).first<Row>()
+    // Item 17 (banca): a identidade do bookmark é (página, âncora) — o cliente
+    // manda a MESMA âncora para adicionar e para remover (drawer usa a do item).
+    const pageNumber = Number(args.pageNumber) || 0
+    const anchorOffset = Number(args.anchorOffset || 0)
+    const existing = await db().prepare('select id from bookmarks where user_id = ? and book_id = ? and book_source = ? and page_number = ? and anchor_offset = ?')
+      .bind(user.id, String(args.bookId), String(args.bookSource), pageNumber, anchorOffset).first<Row>()
     if (existing) {
       await db().prepare('delete from bookmarks where id = ?').bind(existing.id).run()
       return false
     }
     await db().prepare('insert into bookmarks (id, user_id, book_id, book_source, page_number, anchor_offset, note, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), user.id, String(args.bookId), String(args.bookSource), Number(args.pageNumber) || 0, Number(args.anchorOffset || 0),
+      .bind(crypto.randomUUID(), user.id, String(args.bookId), String(args.bookSource), pageNumber, anchorOffset,
         args.note ? String(args.note).slice(0, 1000) : null, now()).run()
     return true
   },
