@@ -110,6 +110,18 @@ export interface RpcArgs {
   account_delete: RpcNoArgs
 }
 
+// Item 23 (banca): erros de RPC viram estrutura, não string crua — o cliente pode
+// reagir ao código (NOT_FOUND etc.) em vez de adivinhar pela mensagem. A classe
+// vive no contrato compartilhado: cliente (data.ts) e servidor (store.ts) usam a MESMA.
+export type RpcErrorCode = 'NOT_FOUND' | 'VALIDATION'
+
+export class RpcError extends Error {
+  constructor(public code: RpcErrorCode, message: string) {
+    super(message)
+    this.name = 'RpcError'
+  }
+}
+
 /** O que cada op devolve — o formato EXATamente que o cliente consome. */
 export interface RpcResults {
   session_get: UserProfile | null

@@ -25,7 +25,9 @@ export default function ManageImportedBookPage() {
 
   useEffect(() => {
     Promise.all([getCurrentProfile(), getImportedBook(id)]).then(([current, loaded]) => {
-      if (!current || !loaded || loaded.user_id !== current.id) throw new Error('Somente o proprietário pode configurar este livro.')
+      if (!current) throw new Error('Entre na sua conta para configurar este livro.')
+      if (!loaded) throw new Error('Este livro não existe (ou foi apagado).')
+      if (loaded.user_id !== current.id) throw new Error('Somente o proprietário pode configurar este livro.')
       setProfile(current); setBook(loaded); setTitle(loaded.title); setAuthor(loaded.author); setDescription(loaded.description || ''); setCoverUrl(loaded.cover_url || null)
     }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Não foi possível abrir as configurações.')).finally(() => setLoading(false))
   }, [id])

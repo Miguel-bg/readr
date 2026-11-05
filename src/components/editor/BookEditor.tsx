@@ -49,7 +49,10 @@ export function BookEditor({ bookId }: { bookId?: string }) {
         if (!p) { setError('Entre na sua conta para criar ou editar livros.'); return }
         if (!bookId) { setAuthor(p.display_name); return }
         const book = await getCreatedBook(bookId)
-        if (!book || book.user_id !== p.id) { setError('Somente o proprietário pode editar este livro.'); return }
+        // Item 23: "não existe" e "não é seu" são situações diferentes — mensagem
+        // honesta para cada uma em vez da mesma frase confusa pros dois casos.
+        if (!book) { setError('Este livro não existe (ou foi apagado).'); return }
+        if (book.user_id !== p.id) { setError('Somente o proprietário pode editar este livro.'); return }
         setTitle(book.title); setAuthor(book.author); setDescription(book.description || ''); setGenre(book.genre || ''); setLanguage(book.language || 'Português'); setPublisher(book.publisher || ''); setPublishedYear(book.published_year ? String(book.published_year) : ''); setTags((book.tags || []).join(', ')); setCoverUrl(book.cover_url || null)
         setChapters(book.chapters?.sort((a, b) => a.order_index - b.order_index) || [emptyChapter(0)])
         setStoredCoverUrl(book.cover_url || null)

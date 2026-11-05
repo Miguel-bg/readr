@@ -4,7 +4,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { randomHex } from './auth'
 import type { SessionUser } from './auth'
 import { giveCapacity } from './ratelimit'
-import type { RpcArgs, Row } from '@/lib/rpc-contract'
+import { RpcError, type RpcArgs, type Row } from '@/lib/rpc-contract'
 import type { Book } from '@/lib/types'
 import { countWordsInText } from '@/lib/reader/blocks'
 
@@ -327,12 +327,12 @@ export const handlers = {
     if (!fields.length) return
     params.push(args.bookId, user.id)
     const result = await db().prepare(`update books set ${fields.join(', ')} where id = ? and user_id = ?`).bind(...params).run()
-    if (!result.meta.changes) throw new Error('Livro não encontrado para este usuário.')
+    if (!result.meta.changes) throw new RpcError('NOT_FOUND', 'Livro não encontrado para este usuário.')
   },
 
   async book_delete(args: RpcArgs['book_delete'], user: SessionUser) {
     const row = await db().prepare('select file_url from books where id = ? and user_id = ?').bind(args.bookId, user.id).first<Row>()
-    if (!row) throw new Error('Livro não encontrado para este usuário.')
+    if (!row) throw new RpcError('NOT_FOUND', 'Livro não encontrado para este usuário.')
     const statements = [
       db().prepare('delete from book_content where book_id = ?').bind(args.bookId),
       db().prepare('delete from books where id = ? and user_id = ?').bind(args.bookId, user.id),
@@ -504,7 +504,7 @@ export const handlers = {
       return false
     }
     const { results } = await db().prepare('select id from profiles where id = ?').bind(args.profileId).all()
-    if (!(results || []).length) throw new Error('Perfil não encontrado.')
+    if (!(results || []).length) throw new RpcError('NOT_FOUND', 'Perfil não encontrado.')
     await db().prepare('insert or ignore into follows (follower_id, following_id, created_at) values (?, ?, ?)')
       .bind(user.id, args.profileId, now()).run()
     return true
@@ -684,13 +684,13 @@ export const handlers = {
     const note = args.note ? String(args.note).slice(0, 1000) : null
     const result = await db().prepare('update highlights set note = ?, updated_at = ? where id = ? and user_id = ?')
       .bind(note, now(), String(args.id), user.id).run()
-    if (!result.meta.changes) throw new Error('Destaque não encontrado.')
+    if (!result.meta.changes) throw new RpcError('NOT_FOUND', 'Destaque não encontrado.')
     return true
   },
 
   async highlights_delete(args: RpcArgs['highlights_delete'], user: SessionUser) {
     const result = await db().prepare('delete from highlights where id = ? and user_id = ?').bind(String(args.id), user.id).run()
-    if (!result.meta.changes) throw new Error('Destaque não encontrado.')
+    if (!result.meta.changes) throw new RpcError('NOT_FOUND', 'Destaque não encontrado.')
     return true
   },
 
