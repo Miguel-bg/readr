@@ -78,3 +78,10 @@ export async function signOut() {
   await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
   notifyAuthChanged()
 }
+
+// Item 25 (banca): honra ?next= sem open redirect. Só caminho interno absoluto
+// passa: aspas '//' e '/\\' (protocol-relative externo) caem no início.
+export function safeNextPath(value: string | null | undefined): string {
+  if (value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) return value
+  return '/'
+}

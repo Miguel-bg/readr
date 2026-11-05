@@ -5,19 +5,23 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, LoaderCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { signUp } from '@/lib/auth-client'
+import { safeNextPath, signUp } from '@/lib/auth-client'
 
 export function SignupForm() {
   const router = useRouter()
   const t = useTranslations('auth')
   const formRef = useRef<HTMLFormElement>(null)
   const [mounted, setMounted] = useState(false)
+  const [nextPath, setNextPath] = useState('/')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   // Botão só habilita depois da hidratação: um submit antes disso virava um GET nativo
   // que recarregava a página e apagava tudo que o usuário tinha digitado.
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    setNextPath(safeNextPath(new URLSearchParams(window.location.search).get('next')))
+    setMounted(true)
+  }, [])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -31,7 +35,7 @@ export function SignupForm() {
     setLoading(true)
     try {
       await signUp(name, nickname, email, password)
-      router.replace('/')
+      router.replace(nextPath)
       router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível criar a conta.')
@@ -48,7 +52,7 @@ export function SignupForm() {
       <label className="block"><span className="mb-2 block text-xs font-medium">{t('password')}</span><input name="password" className="field" placeholder={t('choosePassword')} type="password" autoComplete="new-password" minLength={8} required /><small className="mt-1.5 block text-[10px] text-muted">Mínimo de 8 caracteres.</small></label>
       {error && <p className="rounded-lg bg-coral/10 p-3 text-xs text-coral" role="alert">{error}</p>}
       <button className="primary-btn w-full" disabled={loading || !mounted}>{loading ? <LoaderCircle className="animate-spin" size={18} /> : <>{t('createAndEnter')} <ArrowRight size={17} /></>}</button>
-      <p className="text-center text-xs text-muted">Já tem conta? <Link href="/auth/login" className="font-semibold text-coral hover:underline">Entrar</Link></p>
+      <p className="text-center text-xs text-muted">Já tem conta? <Link href={`/auth/login?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-coral hover:underline">Entrar</Link></p>
     </form>
   )
 }
