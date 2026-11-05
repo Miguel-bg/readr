@@ -22,16 +22,28 @@ export interface ContinueReadingData { book: Book; progress: ReadingProgress; pa
 
 // Chamada RPC tipada pelo contrato (src/lib/rpc-contract.ts): op inexistente ou arg
 // em forma errada falha em tsc. Ops sem args nem aceitam o segundo parâmetro.
+interface RpcCallOpts {
+  /** true = a chamada precisa sobreviver ao fechamento da aba (progresso em unload). */
+  keepalive?: boolean
+}
+
 async function rpc<Op extends keyof RpcArgs>(
   op: Op,
-  ...args: RpcArgs[Op] extends RpcNoArgs ? [] : [RpcArgs[Op]]
+  ...args: RpcArgs[Op] extends RpcNoArgs ? [opts?: RpcCallOpts] : [RpcArgs[Op], opts?: RpcCallOpts]
 ): Promise<RpcResults[Op]> {
-  const payload = (args[0] ?? {}) as Record<string, unknown>
+  const [first, second] = args as [RpcArgs[Op] | RpcCallOpts | undefined, RpcCallOpts | undefined]
+  let payload: unknown = first ?? {}
+  let opts: RpcCallOpts | undefined = second
+  if (!second && payload && typeof payload === 'object' && 'keepalive' in payload) {
+    opts = payload as RpcCallOpts
+    payload = {}
+  }
   const response = await fetch('/api/rpc', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ op, args: payload }),
     credentials: 'same-origin',
+    keepalive: opts?.keepalive === true,
   })
   const result = await response.json() as { ok?: boolean; data?: RpcResults[Op]; error?: string }
   if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível concluir a operação.')
@@ -185,7 +197,9 @@ export async function updateBook(bookId: string, payload: CreateBookPayload, use
 }
 
 export async function updateReadingProgress(progress: Omit<ReadingProgress, 'id' | 'updated_at'>) {
-  await rpc('progress_upsert', { ...progress })
+  // Item 16 (banca): o último progresso antes de fechar a aba precisa chegar ao
+  // servidor — keepalive: true amarra o POST ao ciclo do documento, não à página.
+  await rpc('progress_upsert', { ...progress }, { keepalive: true })
 }
 
 export async function getReadingProgress(userId: string, bookId: string, source: BookSource) {
