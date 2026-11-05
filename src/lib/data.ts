@@ -244,6 +244,12 @@ export async function setBookReaction(userId: string, bookId: string, source: Bo
   await rpc('reaction_set', { bookId, bookSource: source, reaction })
 }
 
+/** Volta a reação para "vazia" (item 18 da banca). */
+export async function removeBookReaction(userId: string, bookId: string, source: BookSource) {
+  void userId
+  await rpc('reaction_remove', { bookId, bookSource: source })
+}
+
 export async function getBookSocial(bookId: string, source: BookSource) {
   return rpc('social_get', { bookId, bookSource: source })
 }

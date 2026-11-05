@@ -53,6 +53,8 @@ export interface BookSocial {
   dislikes: number
   reviews: BookReview[]
   averageRating: number
+  /** Reação do espectador atual (ou null se não logado/sem reação). */
+  viewerReaction: 'like' | 'dislike' | null
 }
 
 export interface FollowCounts {

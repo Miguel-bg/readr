@@ -431,13 +431,18 @@ export const handlers = {
 
   /* ------------------------------ social ------------------------------ */
 
-  async social_get(args: RpcArgs['social_get'], _user: SessionUser | null) {
-    const [reactions, reviews] = await Promise.all([
+  async social_get(args: RpcArgs['social_get'], user: SessionUser | null) {
+    const [reactions, reviews, mine] = await Promise.all([
       db().prepare('select reaction, count(*) as count from book_reactions where book_id = ? and book_source = ? group by reaction')
         .bind(args.bookId, args.bookSource).all<Row>(),
       db().prepare(`select r.*, p.display_name, p.nickname, p.avatar_url from reviews r join profiles p on p.id = r.user_id
         where r.book_id = ? and r.book_source = ? order by r.created_at desc`)
         .bind(args.bookId, args.bookSource).all<Row>(),
+      // Item 18 (banca): a página precisa saber a reação ATUAL do espectador.
+      user
+        ? db().prepare('select reaction from book_reactions where user_id = ? and book_id = ? and book_source = ?')
+          .bind(user.id, args.bookId, args.bookSource).first<Row>()
+        : Promise.resolve(null),
     ])
     const typed = (reviews.results || []).map(reviewOut)
     let likes = 0
@@ -451,6 +456,7 @@ export const handlers = {
       dislikes,
       reviews: typed,
       averageRating: typed.length ? typed.reduce((sum, item) => sum + item.rating, 0) / typed.length : 0,
+      viewerReaction: mine?.reaction === 'like' || mine?.reaction === 'dislike' ? mine.reaction : null,
     }
   },
 
