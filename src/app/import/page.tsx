@@ -21,6 +21,9 @@ export default function ImportPage() {
   const [book, setBook] = useState<Book | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Item 22 (banca): arquivo acima do limite de 25 MB entra na biblioteca sem
+  // a cópia do original (D1 não guarda). O aviso diz isso na cara do usuário.
+  const [oversizeNote, setOversizeNote] = useState<string | null>(null)
 
   const choose = useCallback(function choose(file?: File) {
     if (!file) return
@@ -33,6 +36,7 @@ export default function ImportPage() {
     setSelectedFile(file)
     setTitle(file.name.replace(/\.[^.]+$/, ''))
     setBook(null)
+    setOversizeNote(null)
   }, [])
 
   function chooseCover(file?: File) {
@@ -60,6 +64,7 @@ export default function ImportPage() {
       const profile = await getCurrentProfile()
       if (!profile) { router.push('/auth/login'); return }
       const imported = await importBook(selectedFile, profile.id, { title, author, coverFile })
+      if (!imported.file_url && selectedFile.size > 25 * 1024 * 1024) setOversizeNote(`O arquivo original (${(selectedFile.size / 1024 / 1024).toFixed(1)} MB) é maior que o limite de 25 MB: o conteúdo para leitura foi salvo, mas o Readr NÃO guardou uma cópia do arquivo bruto. Guarde a sua.`)
       setBook(imported)
       router.prefetch(`/book/${imported.id}?source=imported`)
     } catch (cause) {
@@ -140,7 +145,9 @@ export default function ImportPage() {
             <h2 className="mt-4 text-sm font-semibold">Importação persistente</h2>
             {selectedFile ? <div className="mt-5 grid grid-cols-[96px_1fr] gap-4"><BookCover book={preview} /><div className="min-w-0"><p className="line-clamp-3 text-sm font-medium">{title}</p><p className="mt-1 text-[10px] text-muted">{author || 'Autor não informado'}</p><p className="mt-3 text-[9px] uppercase text-muted">{preview.format}</p></div></div> : <p className="mt-3 text-xs leading-relaxed text-muted">Selecione um arquivo para conferir seus dados antes do envio.</p>}
             {error && <p className="mt-5 rounded-xl bg-coral/10 p-3 text-xs text-coral" role="alert">{error}</p>}
-            {book ? <div className="mt-6"><p className="flex items-center gap-2 text-xs text-emerald-700"><CheckCircle2 size={17} /> Livro salvo na sua biblioteca.</p><Link href={`/book/${book.id}?source=imported`} className="primary-btn mt-4 w-full">Abrir no leitor</Link></div> : <button type="button" onClick={submit} disabled={!selectedFile || loading} className="primary-btn mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50">{loading ? <><LoaderCircle className="animate-spin" size={17} /> Processando arquivo</> : 'Importar para minha biblioteca'}</button>}
+            {book ? <div className="mt-6">
+              {oversizeNote && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-800" role="alert">{oversizeNote}</p>}
+              <p className="flex items-center gap-2 text-xs text-emerald-700"><CheckCircle2 size={17} /> Livro salvo na sua biblioteca.</p><Link href={`/book/${book.id}?source=imported`} className="primary-btn mt-4 w-full">Abrir no leitor</Link></div> : <button type="button" onClick={submit} disabled={!selectedFile || loading} className="primary-btn mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50">{loading ? <><LoaderCircle className="animate-spin" size={17} /> Processando arquivo</> : 'Importar para minha biblioteca'}</button>}
           </aside>
         </section>
       </section>
