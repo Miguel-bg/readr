@@ -69,7 +69,7 @@ export function BookEditor({ bookId }: { bookId?: string }) {
   useEffect(() => {
     if (!bookId) return
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirtyRef.current || autoState === 'saving') event.preventDefault()
+      if (dirtyRef.current || autoState === 'saving') { event.preventDefault(); event.returnValue = '' }
     }
     window.addEventListener('beforeunload', beforeUnload)
     return () => window.removeEventListener('beforeunload', beforeUnload)
