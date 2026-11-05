@@ -251,6 +251,13 @@ async function listBooks(where: { userId?: string; excludeUserId?: string; withC
   return rows as Row[]
 }
 
+// Item 21 (banca): publicar livro com capítulo vazio é rejeitado no servidor —
+// o editor bloqueia, mas o RPC é público e o cliente não é confiável. Rascunho
+// continua aceitando capítulos vazios (é o rascunho do dono).
+function publishBlockThrow(chapters: { title?: string, content?: string }[]) {
+  if (chapters.some((chapter) => !(chapter.content || '').trim())) throw new Error('Para publicar, todos os capítulos precisam de conteúdo.')
+}
+
 // Handlers RPC: cada args é checado contra o contrato compartilhado (src/lib/rpc-contract.ts).
 // Op → shape de argumento/retorno vive lá; aqui só a regra de acesso e o SQL.
 export const handlers = {
@@ -375,6 +382,7 @@ export const handlers = {
 
   async created_create(args: RpcArgs['created_create'], user: SessionUser) {
     const { chapters = [], ...metadata } = args
+    if (metadata.status === 'published') publishBlockThrow(chapters)
     const bookId = crypto.randomUUID()
     const coverUrl = await validateFileRef(user.id, metadata.cover_url, 'cover')
     const statements = [
@@ -397,6 +405,7 @@ export const handlers = {
     const { chapters = [], ...metadata } = args
     const owned = await db().prepare('select id from created_books where id = ? and user_id = ?').bind(args.bookId, user.id).first()
     if (!owned) throw new Error('Somente o proprietário pode editar este livro.')
+    if (metadata.status === 'published') publishBlockThrow(chapters)
     const updates = [
       db().prepare(`update created_books set title = ?, author = ?, description = ?, cover_url = ?, status = ?, genre = ?, language = ?, published_year = ?, publisher = ?, tags = ? where id = ? and user_id = ?`)
         .bind(
