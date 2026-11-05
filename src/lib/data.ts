@@ -3,7 +3,8 @@
 // As assinaturas são as mesmas da versão anterior para não reescrever os componentes.
 import { parseBookFile } from '@/lib/reader/parseBook'
 import { CreatedBookSource, ImportedBookSource, readerPageText, repaginateReaderContent } from '@/lib/reader/ReaderSource'
-import type { Book, BookReview, BookSource, CreateBookPayload, CreatedBook, HighlightColor, ReaderHighlight, ReadingProgress, ShelfStatus, UserProfile } from '@/lib/types'
+import type { RpcArgs, RpcNoArgs, RpcResults, Row } from '@/lib/rpc-contract'
+import type { Book, BookSource, CreateBookPayload, CreatedBook, HighlightColor, ReaderHighlight, ReadingProgress, ShelfStatus, UserProfile } from '@/lib/types'
 
 export interface ImportOptions {
   title?: string
@@ -18,19 +19,25 @@ export interface ImportOptions {
 }
 export interface ContinueReadingData { book: Book; progress: ReadingProgress; pageHtml: string; chapterTitle: string }
 
-async function rpc<T>(op: string, args: Record<string, unknown> = {}): Promise<T> {
+// Chamada RPC tipada pelo contrato (src/lib/rpc-contract.ts): op inexistente ou arg
+// em forma errada falha em tsc. Ops sem args nem aceitam o segundo parâmetro.
+async function rpc<Op extends keyof RpcArgs>(
+  op: Op,
+  ...args: RpcArgs[Op] extends RpcNoArgs ? [] : [RpcArgs[Op]]
+): Promise<RpcResults[Op]> {
+  const payload = (args[0] ?? {}) as Record<string, unknown>
   const response = await fetch('/api/rpc', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ op, args }),
+    body: JSON.stringify({ op, args: payload }),
     credentials: 'same-origin',
   })
-  const result = await response.json() as { ok?: boolean; data?: T; error?: string }
+  const result = await response.json() as { ok?: boolean; data?: RpcResults[Op]; error?: string }
   if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível concluir a operação.')
-  return result.data as T
+  return result.data as RpcResults[Op]
 }
 
-function importedBookOf(row: Record<string, any>): Book {
+function importedBookOf(row: Row): Book {
   return {
     id: row.id, user_id: row.user_id, title: row.title || '', author: row.author || '', description: row.description || '', cover_url: row.cover_url,
     format: row.format, file_url: row.file_url, total_pages: Math.max(1, row.total_pages || 1), source: 'imported', content: Array.isArray(row.content) ? row.content : [],
@@ -40,7 +47,7 @@ function importedBookOf(row: Record<string, any>): Book {
   }
 }
 
-function createdBookOf(row: Record<string, any>): CreatedBook {
+function createdBookOf(row: Row): CreatedBook {
   const chapters = Array.isArray(row.chapters) ? [...row.chapters].sort((a, b) => a.order_index - b.order_index) : []
   const words = chapters.reduce((sum, chapter) => sum + String(chapter.content || '').trim().split(/\s+/).filter(Boolean).length, 0)
   return {
@@ -51,22 +58,22 @@ function createdBookOf(row: Record<string, any>): CreatedBook {
 
 export async function getImportedLibrary(userId: string): Promise<Book[]> {
   if (!userId) return []
-  return (await rpc<Record<string, any>[]>('library_mine')).map(importedBookOf)
+  return (await rpc('library_mine')).map(importedBookOf)
 }
 
 export async function getPublicImportedBooks(userId?: string): Promise<Book[]> {
   void userId // a exclusão dos próprios livros é resolvida no servidor pela sessão
-  return (await rpc<Record<string, any>[]>('library_public')).map(importedBookOf)
+  return (await rpc('library_public')).map(importedBookOf)
 }
 
 export async function getImportedBook(bookId: string): Promise<Book | null> {
-  const row = await rpc<Record<string, any> | null>('book_get', { bookId })
+  const row = await rpc('book_get', { bookId })
   return row ? importedBookOf(row) : null
 }
 
 export async function getPublicBook(bookId: string, source: BookSource): Promise<Book | null> {
   if (source === 'created') return getCreatedBook(bookId)
-  const row = await rpc<Record<string, any> | null>('book_get', { bookId })
+  const row = await rpc('book_get', { bookId })
   return row ? importedBookOf(row) : null
 }
 
@@ -114,7 +121,7 @@ export async function importBook(file: File, userId: string, options: ImportOpti
   const coverFile = options.coverFile || extractedCover
   const coverUrl = coverFile ? await uploadCover(coverFile, userId) : null
 
-  const bookId = await rpc<string>('book_create', {
+  const bookId = await rpc('book_create', {
     book: {
       title: options.title?.trim() || parsed.title,
       author: options.author?.trim() || parsed.author,
@@ -153,22 +160,22 @@ export async function deleteImportedBook(bookId: string, userId: string) {
 
 export async function getCreatedBooks(userId: string): Promise<CreatedBook[]> {
   if (!userId) return []
-  return (await rpc<Record<string, any>[]>('created_list_mine')).map(createdBookOf)
+  return (await rpc('created_list_mine')).map(createdBookOf)
 }
 
 export async function getCommunityBooks(userId?: string): Promise<CreatedBook[]> {
   void userId
-  return (await rpc<Record<string, any>[]>('created_list_community')).map(createdBookOf)
+  return (await rpc('created_list_community')).map(createdBookOf)
 }
 
 export async function getCreatedBook(bookId: string): Promise<CreatedBook | null> {
-  const row = await rpc<Record<string, any> | null>('created_book_get', { bookId })
+  const row = await rpc('created_book_get', { bookId })
   return row ? createdBookOf(row) : null
 }
 
 export async function createBook(payload: CreateBookPayload, userId: string) {
   void userId
-  return rpc<string>('created_create', { ...payload })
+  return rpc('created_create', { ...payload })
 }
 
 export async function updateBook(bookId: string, payload: CreateBookPayload, userId: string) {
@@ -182,12 +189,12 @@ export async function updateReadingProgress(progress: Omit<ReadingProgress, 'id'
 
 export async function getReadingProgress(userId: string, bookId: string, source: BookSource) {
   void userId
-  return rpc<ReadingProgress | null>('progress_get', { bookId, bookSource: source })
+  return rpc('progress_get', { bookId, bookSource: source })
 }
 
 export async function getContinueReading(userId: string): Promise<ContinueReadingData | null> {
   void userId
-  const progress = await rpc<ReadingProgress | null>('progress_latest')
+  const progress = await rpc('progress_latest')
   if (!progress) return null
   const book = progress.book_source === 'imported' ? await getImportedBook(progress.book_id) : await getCreatedBook(progress.book_id)
   if (!book) return null
@@ -214,7 +221,7 @@ export async function setShelfStatus(userId: string, bookId: string, source: Boo
 
 export async function getShelfItems(userId: string) {
   if (!userId) return []
-  return rpc<Record<string, any>[]>('shelf_list')
+  return rpc('shelf_list')
 }
 
 export async function setBookReaction(userId: string, bookId: string, source: BookSource, reaction: 'like' | 'dislike') {
@@ -223,7 +230,7 @@ export async function setBookReaction(userId: string, bookId: string, source: Bo
 }
 
 export async function getBookSocial(bookId: string, source: BookSource) {
-  return rpc<{ likes: number; dislikes: number; reviews: BookReview[]; averageRating: number }>('social_get', { bookId, bookSource: source })
+  return rpc('social_get', { bookId, bookSource: source })
 }
 
 export async function saveReview(userId: string, bookId: string, source: BookSource, rating: number, content: string) {
@@ -246,7 +253,7 @@ export async function toggleBookLike(userId: string, book: Book, liked: boolean)
 }
 
 export async function getProfiles(query = '') {
-  return rpc<UserProfile[]>('profiles_search', { query })
+  return rpc('profiles_search', { query })
 }
 
 export async function toggleFollow(currentUserId: string, profileId: string, following: boolean) {
@@ -256,34 +263,34 @@ export async function toggleFollow(currentUserId: string, profileId: string, fol
 
 export async function getFollowCounts(profileId: string, currentUserId?: string) {
   void currentUserId
-  return rpc<{ followers: number; following: number; isFollowing: boolean }>('follow_get', { profileId })
+  return rpc('follow_get', { profileId })
 }
 
 export async function getRankings() {
-  return rpc<Array<{ profile: UserProfile; booksRead: number; pagesRead: number; streak: number }>>('rankings_get')
+  return rpc('rankings_get')
 }
 
 export async function getPublicProfile(profileId: string) {
-  return rpc<UserProfile | null>('profile_get', { profileId })
+  return rpc('profile_get', { profileId })
 }
 
 export async function getProfileActivities(profileId: string) {
-  return rpc<Record<string, any>[]>('activities_list', { profileId })
+  return rpc('activities_list', { profileId })
 }
 
 export async function getBookmarks(userId: string, bookId: string, source: BookSource) {
   void userId
-  return rpc<Record<string, any>[]>('bookmarks_list', { bookId, bookSource: source })
+  return rpc('bookmarks_list', { bookId, bookSource: source })
 }
 
 export async function toggleBookmark(userId: string, bookId: string, source: BookSource, pageNumber: number, note = '', anchorOffset = 0) {
   void userId
-  return rpc<boolean>('bookmarks_toggle', { bookId, bookSource: source, pageNumber, note, anchorOffset })
+  return rpc('bookmarks_toggle', { bookId, bookSource: source, pageNumber, note, anchorOffset })
 }
 
 export async function getHighlights(userId: string, bookId: string, source: BookSource): Promise<ReaderHighlight[]> {
   void userId
-  return rpc<ReaderHighlight[]>('highlights_list', { bookId, bookSource: source })
+  return rpc('highlights_list', { bookId, bookSource: source })
 }
 
 export async function createHighlight(input: {
@@ -296,9 +303,12 @@ export async function createHighlight(input: {
   color: HighlightColor
   note?: string
 }) {
-  const { userId, ...args } = input
+  // userId fica no cliente só para assinatura; o servidor usa a sessão.
+  const { userId, source, ...rest } = input
   void userId
-  return rpc<ReaderHighlight>('highlights_create', args)
+  // BUG corrigido (banca): antes ia `source` e o handler lia `args.bookSource` —
+  // todo highlight era gravado com book_source="undefined" e nunca listado.
+  return rpc('highlights_create', { bookSource: source, ...rest })
 }
 
 export async function updateHighlightNote(id: string, userId: string, note: string) {
@@ -338,7 +348,7 @@ export async function uploadAvatar(file: File, userId: string) {
 }
 
 export async function updateProfile(changes: Partial<Pick<UserProfile, 'display_name' | 'bio' | 'avatar_url'>>) {
-  return rpc<UserProfile>('profile_update', { changes })
+  return rpc('profile_update', { changes })
 }
 
 export async function getCurrentProfile(): Promise<UserProfile | null> {
