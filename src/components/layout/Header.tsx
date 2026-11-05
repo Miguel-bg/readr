@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useState } from 'react'
-import { Bell, Moon, Search, Sun, UserRound } from 'lucide-react'
+import { Moon, Search, Sun, UserRound } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useAppTheme } from '@/components/ui/AppThemeProvider'
 
@@ -28,7 +28,6 @@ export function Header({ name, avatarUrl }: { name?: string; avatarUrl?: string 
           {avatarUrl ? <img src={avatarUrl} alt={`Avatar de ${name || 'usuário'}`} className="size-full object-cover" /> : name ? name.charAt(0).toUpperCase() : <UserRound size={16} />}
         </span>
         <span className="hidden text-sm font-medium md:block">{name || t('signIn')}</span>
-        {name && <Bell className="ml-1" size={19} strokeWidth={1.6} />}
       </Link></div>
     </header>
   )
