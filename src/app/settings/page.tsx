@@ -29,6 +29,14 @@ export default function SettingsPage() {
       const response = await fetch('/api/auth/delete-account', { method: 'DELETE' })
       const result = await response.json() as { ok?: boolean; error?: string }
       if (!response.ok || !result.ok) throw new Error(result.error || 'Não foi possível excluir a conta.')
+      // Item 34 (banca): a conta morreu no servidor, mas as preferências em
+      // localStorage sobreviveriam no navegador: um próximo usuário desta
+      // máquina herdaria idioma/tema e as preferências do leitor morto.
+      try {
+        localStorage.removeItem('readr-language')
+        localStorage.removeItem('readr-app-theme')
+        localStorage.removeItem('readr-reader-preferences')
+      } catch { /* sem armazenamento disponível */ }
       await signOut().catch(() => undefined)
       router.replace('/auth/signup')
       router.refresh()
