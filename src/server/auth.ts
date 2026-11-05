@@ -34,9 +34,27 @@ function base64UrlToBuffer(value: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0))
 }
 
-async function hmacKey(): Promise<CryptoKey> {
+// Item 24 (banca): o JWT_SECRET tem UM ponto de leitura, com validação honesta
+// uma vez por processo. Antes o auth.ts quebrava sem o secret e a rota kdf caía
+// silenciosamente no fallback público 'readr' — dois mundos, ninguém avisado.
+let secretAudited = false
+
+export function jwtSecret(): string | null {
   const env = getCloudflareContext().env as { JWT_SECRET?: string }
-  const secret = env.JWT_SECRET
+  const secret = (env.JWT_SECRET || '').trim() || null
+  if (!secretAudited) {
+    secretAudited = true
+    if (!secret) console.error('JWT_SECRET ausente (wrangler secret put JWT_SECRET): sessões vão falhar e o salt-isca usa o fallback público.')
+    else if (secret.length < 32) console.error(`JWT_SECRET tem ${secret.length} bytes; recomendado >= 32. Rotacione com wrangler secret put JWT_SECRET.`)
+  }
+  return secret
+}
+
+/** Fallback público do salt-isca (NÃO segredo: nunca deixa login quebrar em preview). */
+export const KDF_DECOY_FALLBACK = 'readr'
+
+async function hmacKey(): Promise<CryptoKey> {
+  const secret = jwtSecret()
   if (!secret) throw new Error('JWT_SECRET não está configurado (wrangler secret put JWT_SECRET).')
   return crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
 }

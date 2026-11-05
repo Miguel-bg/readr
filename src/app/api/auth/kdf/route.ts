@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getCloudflareContext } from '@opennextjs/cloudflare'
+import { jwtSecret, KDF_DECOY_FALLBACK } from '@/server/auth'
 import { db } from '@/server/store'
 import { clientIp, giveCapacity } from '@/server/ratelimit'
 
@@ -23,7 +23,9 @@ export async function POST(request: Request) {
     .bind(identifier, identifier).first<{ kdf_salt: string }>()
   if (row) return NextResponse.json({ salt: row.kdf_salt })
 
-  const secret = (getCloudflareContext().env as { JWT_SECRET?: string }).JWT_SECRET || 'readr'
+  // Fallback unificado: o salt-isca nunca quebra o login (não é segredo — só
+  // deriva um salt estável para contas inexistentes). jwtSecret() já auditou.
+  const secret = jwtSecret() || KDF_DECOY_FALLBACK
   const salt = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`readr-decoy|${secret}|${identifier}`))).slice(0, 32)
   return NextResponse.json({ salt })
 }
