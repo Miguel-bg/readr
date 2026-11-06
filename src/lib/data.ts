@@ -45,7 +45,7 @@ async function rpc<Op extends keyof RpcArgs>(
     credentials: 'same-origin',
     keepalive: opts?.keepalive === true,
   })
-  const result = await response.json() as { ok?: boolean; data?: RpcResults[Op]; error?: string; code?: string }
+  const result = await response.json().catch(() => ({})) as { ok?: boolean; data?: RpcResults[Op]; error?: string; code?: string }
   if (!response.ok || !result.ok) {
     // Item 23: o código estruturado viaja com o erro — o cliente reage a NOT_FOUND
     // sem decifrar a string (que ainda acompanha, para exibição direta).
